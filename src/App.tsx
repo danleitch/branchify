@@ -1,12 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./App.css";
 
 function App() {
-  // State for the form inputs
-  const [branchType, setBranchType] = useState("");
-  const [ticketNumber, setTicketNumber] = useState("");
+  // State for the form inputs with persistence
+  const [branchType, setBranchType] = useState(
+    () => localStorage.getItem("branchType") || ""
+  );
+  const [ticketNumber, setTicketNumber] = useState(
+    () => localStorage.getItem("ticketNumber") || ""
+  );
   const [description, setDescription] = useState("");
   const [branchName, setBranchName] = useState("");
+  const [gitCommand, setGitCommand] = useState("");
 
   // Handle form submission
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -19,10 +24,22 @@ function App() {
         .replace(/\s+/g, "-")
         .toLowerCase()}`;
       setBranchName(formattedBranchName);
+      setGitCommand(`git checkout -b "${formattedBranchName}"`);
     } else {
       alert("Please fill out all fields");
     }
   };
+
+  // Function to copy text to clipboard
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  // Persist branchType and ticketNumber in localStorage
+  useEffect(() => {
+    localStorage.setItem("branchType", branchType);
+    localStorage.setItem("ticketNumber", ticketNumber);
+  }, [branchType, ticketNumber]);
 
   return (
     <div className="App">
@@ -68,10 +85,23 @@ function App() {
         </form>
 
         {branchName && (
-          <div>
-            <h2>Generated Branch Name:</h2>
-            <p>{branchName}</p>
-          </div>
+          <>
+            <div>
+              <h2>Generated Branch Name:</h2>
+              <p>{branchName}</p>
+              <button onClick={() => copyToClipboard(branchName)}>
+                Copy Branch Name
+              </button>
+            </div>
+
+            <div>
+              <h2>Git Command:</h2>
+              <code>{gitCommand}</code>
+              <button onClick={() => copyToClipboard(gitCommand)}>
+                Copy Git Command
+              </button>
+            </div>
+          </>
         )}
       </header>
     </div>
