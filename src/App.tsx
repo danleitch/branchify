@@ -54,9 +54,13 @@ function App() {
               required
             >
               <option value="">Select type</option>
+              <option value="bugfix">Bugfix</option>
+              <option value="chore">Chore</option>
+              <option value="experiment">Experiment</option>
               <option value="feat">Feature</option>
               <option value="fix">Fix</option>
               <option value="refactor">Refactor</option>
+              <option value="release">release</option>
               <option value="style">Style</option>
               <option value="test">Test</option>
             </select>
