@@ -60,7 +60,7 @@ function App() {
               <option value="feat">Feature</option>
               <option value="fix">Fix</option>
               <option value="refactor">Refactor</option>
-              <option value="release">release</option>
+              <option value="release">Release</option>
               <option value="style">Style</option>
               <option value="test">Test</option>
             </select>
