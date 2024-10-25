@@ -9,7 +9,9 @@ function App() {
   const [ticketNumber, setTicketNumber] = useState(
     () => localStorage.getItem("ticketNumber") || ""
   );
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(
+    () => localStorage.getItem("description") || ""
+  );
   const [branchName, setBranchName] = useState("");
   const [gitCommand, setGitCommand] = useState("");
 
@@ -39,7 +41,8 @@ function App() {
   useEffect(() => {
     localStorage.setItem("branchType", branchType);
     localStorage.setItem("ticketNumber", ticketNumber);
-  }, [branchType, ticketNumber]);
+    localStorage.setItem("description", description);
+  }, [branchType, ticketNumber, description]);
 
   return (
     <div className="App">
