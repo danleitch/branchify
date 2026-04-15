@@ -76,13 +76,19 @@ Add these repository secrets in GitHub before enabling the publish step:
 - `DOCKERHUB_USERNAME`
 - `DOCKERHUB_TOKEN`
 
+Optional repository variable:
+
+- `DOCKERHUB_REPOSITORY` to publish to an explicit image path such as `blades/branchify`
+
 The published image name defaults to:
 
 ```text
 <DOCKERHUB_USERNAME>/branchify
 ```
 
-If you want a different repository name, change `IMAGE_NAME` in the workflow.
+If `DOCKERHUB_REPOSITORY` is set, it overrides the default and publishes to that exact Docker Hub repository.
+
+Pull request builds do not push to Docker Hub. They build against a local fallback image name so the workflow still validates successfully when secrets are unavailable.
 
 ## Notes
 
