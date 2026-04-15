@@ -1,0 +1,10 @@
+services:
+  branchify:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: branchify:latest
+    container_name: branchify
+    ports:
+      - "80"
+    restart: unless-stopped

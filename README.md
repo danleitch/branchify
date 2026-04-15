@@ -1,46 +1,97 @@
-# Getting Started with Create React App
+# Branchify
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Branchify is a lightweight static React + TypeScript utility for generating clean, consistent Git branch names in seconds.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- Fast branch name generation with simple inputs
+- Supports optional ticket numbers while keeping the final branch visible
+- Generates PR titles like `feat/BRF-123: Description.`
+- Copies the generated branch name and full `git checkout -b` command
+- Persists your latest values and recent branches in `localStorage`
+- Fully static frontend output (`dist/`) with no backend runtime
+- Mobile-friendly, minimal UI
 
-### `npm start`
+## Tech Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+- [Vite](https://vite.dev/) (build + dev server)
+- React + TypeScript
+- Nginx for static Docker hosting
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## Local Development
 
-### `npm test`
+```bash
+npm install
+npm run dev
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Then open the local URL shown by Vite (typically `http://localhost:5173`).
 
-### `npm run build`
+## Production Build
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```bash
+npm run build
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+The static site is written to `dist/`.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Docker (Static Hosting)
 
-### `npm run eject`
+### Build image
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+```bash
+docker build -t branchify:latest .
+```
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Run container
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+```bash
+docker run --rm -p 8080:80 branchify:latest
+```
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+App will be available at `http://localhost:8080`.
 
-## Learn More
+## Docker Compose (Homelab Friendly)
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```bash
+docker compose up -d --build
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+This starts one service:
+
+- `branchify` (serves the static app on internal container port `80`)
+
+The included Nginx config supports SPA route refresh via `try_files ... /index.html`.
+
+## GitHub Actions to Docker Hub
+
+The workflow at `.github/workflows/docker-publish.yml` will:
+
+- build the Docker image for pull requests targeting `main`
+- build and push the image to Docker Hub on pushes to `main`
+- publish `latest` for the default branch and `sha-*` tags for traceability
+
+Add these repository secrets in GitHub before enabling the publish step:
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+
+Optional repository variable:
+
+- `DOCKERHUB_REPOSITORY` to publish to an explicit image path such as `blades/branchify`
+
+The published image name defaults to:
+
+```text
+<DOCKERHUB_USERNAME>/branchify
+```
+
+If `DOCKERHUB_REPOSITORY` is set, it overrides the default and publishes to that exact Docker Hub repository.
+
+Pull request builds do not push to Docker Hub. They build against a local fallback image name so the workflow still validates successfully when secrets are unavailable.
+
+## Notes
+
+- This is now a **fully static app**: no backend, no runtime Node server.
+- The Docker image uses multi-stage builds: Node for compile, Nginx for serving.
+- Intended to sit cleanly behind an existing reverse proxy in a homelab setup.
