@@ -121,7 +121,7 @@ export const App = (): JSX.Element => {
     <main className="app-shell">
       <section className="panel">
         <header className="panel-header">
-          <h1>Branchify</h1>
+          <h1>Branchify 🪾</h1>
           <p>Create consistent Git branch names in one quick step.</p>
           <p>'&lt;type&gt;/&lt;ticket-id&gt;-&lt;description&gt;' — the practical modern standard used across teams leveraging Jira and Linear.</p>
         </header>
