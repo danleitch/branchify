@@ -84,6 +84,36 @@ button:focus-visible {
   font-weight: 600;
 }
 
+.recent-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.btn-remove {
+  cursor: pointer;
+  border: 1px solid #e5e7eb;
+  background: #f3f4f6;
+  color: #6b7280;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  line-height: 1;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-remove:hover {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+}
+
+.btn-remove:focus-visible {
+  outline: 2px solid #dc2626;
+  outline-offset: 1px;
+}
+
 .output-grid {
   display: grid;
   gap: 1rem;
@@ -151,6 +181,10 @@ code {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.7rem;
   }
+
+  .recent-actions {
+    flex-wrap: nowrap;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -179,6 +213,18 @@ code {
     background: #1e293b;
     color: #dbeafe;
     border-color: #334155;
+  }
+
+  .btn-remove {
+    background: #374151;
+    color: #d1d5db;
+    border-color: #4b5563;
+  }
+
+  .btn-remove:hover {
+    background: #dc2626;
+    color: #ffffff;
+    border-color: #dc2626;
   }
 
   .output-grid article,
