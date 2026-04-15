@@ -142,6 +142,10 @@ code {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .output-wide {
+    grid-column: 1 / -1;
+  }
+
   .recent-list li {
     align-items: center;
     grid-template-columns: minmax(0, 1fr) auto;

@@ -5,6 +5,8 @@ Branchify is a lightweight static React + TypeScript utility for generating clea
 ## Features
 
 - Fast branch name generation with simple inputs
+- Supports optional ticket numbers while keeping the final branch visible
+- Generates PR titles like `feat/BRF-123: Description.`
 - Copies the generated branch name and full `git checkout -b` command
 - Persists your latest values and recent branches in `localStorage`
 - Fully static frontend output (`dist/`) with no backend runtime
@@ -60,6 +62,27 @@ This starts one service:
 - `branchify` (serves the static app on internal container port `80`)
 
 The included Nginx config supports SPA route refresh via `try_files ... /index.html`.
+
+## GitHub Actions to Docker Hub
+
+The workflow at `.github/workflows/docker-publish.yml` will:
+
+- build the Docker image for pull requests targeting `main`
+- build and push the image to Docker Hub on pushes to `main`
+- publish `latest` for the default branch and `sha-*` tags for traceability
+
+Add these repository secrets in GitHub before enabling the publish step:
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+
+The published image name defaults to:
+
+```text
+<DOCKERHUB_USERNAME>/branchify
+```
+
+If you want a different repository name, change `IMAGE_NAME` in the workflow.
 
 ## Notes
 

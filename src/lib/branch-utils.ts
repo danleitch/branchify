@@ -29,6 +29,21 @@ export const slugifyDescription = (value: string): string =>
 export const normalizeTicket = (value: string): string =>
   value.trim().toUpperCase().replace(/\s+/g, '-');
 
+export const formatPullRequestDescription = (value: string): string => {
+  const normalizedValue = value.trim().replace(/\s+/g, ' ');
+
+  if (!normalizedValue) {
+    return '';
+  }
+
+  const sentenceCaseValue =
+    normalizedValue.charAt(0).toUpperCase() + normalizedValue.slice(1);
+
+  return /[.!?]$/.test(sentenceCaseValue)
+    ? sentenceCaseValue
+    : `${sentenceCaseValue}.`;
+};
+
 export const generateBranchName = ({
   branchType,
   ticketNumber,
@@ -37,9 +52,32 @@ export const generateBranchName = ({
   const normalizedDescription = slugifyDescription(description);
   const normalizedTicket = normalizeTicket(ticketNumber);
 
-  if (!branchType || !normalizedTicket || !normalizedDescription) {
+  if (!branchType || !normalizedDescription) {
     return '';
   }
 
-  return `${branchType}/${normalizedTicket}/${normalizedDescription}`;
+  if (!normalizedTicket) {
+    return `${branchType}/${normalizedDescription}`;
+  }
+
+  return `${branchType}/${normalizedTicket}-${normalizedDescription}`;
+};
+
+export const generatePullRequestTitle = ({
+  branchType,
+  ticketNumber,
+  description
+}: BranchInput): string => {
+  const formattedDescription = formatPullRequestDescription(description);
+  const normalizedTicket = normalizeTicket(ticketNumber);
+
+  if (!branchType || !formattedDescription) {
+    return '';
+  }
+
+  if (!normalizedTicket) {
+    return `${branchType}: ${formattedDescription}`;
+  }
+
+  return `${branchType}/${normalizedTicket}: ${formattedDescription}`;
 };

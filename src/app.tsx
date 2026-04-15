@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CopyButton } from './components/copy-button';
-import { BRANCH_TYPES, generateBranchName } from './lib/branch-utils';
+import { BRANCH_TYPES, generateBranchName, generatePullRequestTitle } from './lib/branch-utils';
 
 type RecentBranch = {
   createdAt: string;
@@ -64,6 +64,16 @@ export const App = (): JSX.Element => {
     [form]
   );
 
+  const pullRequestTitle = useMemo(
+    () =>
+      generatePullRequestTitle({
+        branchType: form.branchType,
+        ticketNumber: form.ticketNumber,
+        description: form.description
+      }),
+    [form]
+  );
+
   const gitCommand = branchName ? `git checkout -b "${branchName}"` : '';
 
   useEffect(() => {
@@ -92,7 +102,7 @@ export const App = (): JSX.Element => {
     });
   };
 
-  const missingFields = submitted && !branchName;
+  const missingFields = submitted && (!form.branchType || !form.description.trim());
 
   return (
     <main className="app-shell">
@@ -163,6 +173,14 @@ export const App = (): JSX.Element => {
               <code>{gitCommand}</code>
               <CopyButton value={gitCommand} idleLabel="Copy command" />
             </article>
+
+            {pullRequestTitle ? (
+              <article className="output-wide">
+                <h2>PR title</h2>
+                <code>{pullRequestTitle}</code>
+                <CopyButton value={pullRequestTitle} idleLabel="Copy PR title" />
+              </article>
+            ) : null}
           </section>
         ) : null}
 
