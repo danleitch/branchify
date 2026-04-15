@@ -102,14 +102,28 @@ export const App = (): JSX.Element => {
     });
   };
 
+  const handleReset = (): void => {
+    setForm({
+      branchType: 'feat',
+      ticketNumber: '',
+      description: ''
+    });
+    setSubmitted(false);
+  };
+
+  const handleRemoveRecent = (createdAt: string): void => {
+    setRecentBranches((current) => current.filter((item) => item.createdAt !== createdAt));
+  };
+
   const missingFields = submitted && (!form.branchType || !form.description.trim());
 
   return (
     <main className="app-shell">
       <section className="panel">
         <header className="panel-header">
-          <h1>Branchify</h1>
+          <h1>Branchify 🪾</h1>
           <p>Create consistent Git branch names in one quick step.</p>
+          <p>'&lt;type&gt;/&lt;ticket-id&gt;/&lt;description&gt;' — the practical modern standard used across teams leveraging Jira and Linear.</p>
         </header>
 
         <form className="form-grid" onSubmit={handleSubmit}>
@@ -156,6 +170,10 @@ export const App = (): JSX.Element => {
           <button className="btn" type="submit">
             Generate
           </button>
+
+          <button className="btn btn-secondary" type="button" onClick={handleReset}>
+            Reset
+          </button>
         </form>
 
         {missingFields ? <p className="error">Please fill all fields to generate a branch.</p> : null}
@@ -191,7 +209,16 @@ export const App = (): JSX.Element => {
               {recentBranches.map((item) => (
                 <li key={item.createdAt}>
                   <code>{item.value}</code>
-                  <CopyButton value={item.value} idleLabel="Copy" />
+                  <div className="recent-actions">
+                    <CopyButton value={item.value} idleLabel="Copy" />
+                    <button
+                      className="btn-remove"
+                      onClick={() => handleRemoveRecent(item.createdAt)}
+                      aria-label={`Remove ${item.value}`}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>

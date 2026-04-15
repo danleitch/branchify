@@ -12,6 +12,54 @@ Branchify is a lightweight static React + TypeScript utility for generating clea
 - Fully static frontend output (`dist/`) with no backend runtime
 - Mobile-friendly, minimal UI
 
+## Branch Naming Formula
+
+Branchify uses a simple, consistent branch naming pattern:
+
+### With Ticket Number
+```
+<type>/<ticket-number>/<details>
+```
+
+**Example:** `feat/BRF-123/add-user-authentication`
+
+### Without Ticket Number
+```
+<type>/<details>
+```
+
+**Example:** `feat/add-user-authentication`
+
+### Components
+
+- **Type** — The kind of work (e.g., `feat`, `fix`, `bugfix`, `chore`, `refactor`, `release`, `style`, `test`, `experiment`)
+- **Ticket Number** — Optional project ticket/issue ID (e.g., `BRF-123`, `PROJ-456`)
+- **Details** — A brief, lowercase kebab-case description of the work
+
+## Output Format
+
+Once you generate a branch name, Branchify provides three outputs:
+
+### Branch Name
+The formatted Git branch name ready to use, e.g.:
+```
+feat/add-user-authentication
+```
+
+### Git Command
+A complete, ready-to-paste command to create and checkout the branch:
+```
+git checkout -b "feat/add-user-authentication"
+```
+
+### PR Title (when ticket number provided)
+A properly formatted pull request title following conventional commits:
+```
+feat/BRF-123: Add user authentication.
+```
+
+All three outputs are one-click copyable for quick pasting into your terminal or PR form.
+
 ## Tech Stack
 
 - [Vite](https://vite.dev/) (build + dev server)
