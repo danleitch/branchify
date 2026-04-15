@@ -12,11 +12,20 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: linear-gradient(145deg, #f4f5f8 0%, #e9edf3 100%);
-  color: #1a202c;
+  background: #0d1117;
+  color: #e5e7eb;
+}
+
+#tsparticles {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .app-shell {
+  position: relative;
+  z-index: 1;
   min-height: 100vh;
   padding: 1.25rem;
   display: grid;
@@ -27,8 +36,10 @@ body {
   width: min(100%, 720px);
   padding: 1.5rem;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 20px 45px rgba(22, 29, 37, 0.12);
+  background: rgba(13, 17, 23, 0.82);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(76, 127, 247, 0.18);
 }
 
 .panel-header h1 {
@@ -38,7 +49,7 @@ body {
 
 .panel-header p {
   margin: 0.35rem 0 1.25rem;
-  color: #4a5568;
+  color: #9ca3af;
 }
 
 .form-grid {
@@ -57,9 +68,11 @@ input,
 select,
 button {
   border-radius: 10px;
-  border: 1px solid #cbd5e0;
+  border: 1px solid #374151;
   padding: 0.7rem 0.8rem;
   font-size: 1rem;
+  background: #111827;
+  color: #f3f4f6;
 }
 
 input:focus,
@@ -78,9 +91,9 @@ button:focus-visible {
 }
 
 .btn-secondary {
-  background: #ebf2ff;
-  color: #1e40af;
-  border: 1px solid #bfdbfe;
+  background: #1e293b;
+  color: #dbeafe;
+  border: 1px solid #334155;
   font-weight: 600;
 }
 
@@ -189,13 +202,11 @@ code {
 
 @media (prefers-color-scheme: dark) {
   body {
-    background: linear-gradient(145deg, #0f172a 0%, #111827 100%);
-    color: #e5e7eb;
+    /* dark mode already handled by base styles */
   }
 
   .panel {
-    background: rgba(17, 24, 39, 0.94);
-    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+    /* dark mode already handled by base styles */
   }
 
   .panel-header p {
