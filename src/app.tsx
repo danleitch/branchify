@@ -15,6 +15,7 @@ type PersistedForm = {
 
 const FORM_STORAGE_KEY = 'branchify-form';
 const RECENT_STORAGE_KEY = 'branchify-recent';
+const MAX_RECENT_BRANCHES = 5;
 
 const getInitialForm = (): PersistedForm => {
   const fallback: PersistedForm = {
@@ -43,7 +44,7 @@ const getInitialRecent = (): RecentBranch[] => {
 
   try {
     const parsed = JSON.parse(raw) as RecentBranch[];
-    return Array.isArray(parsed) ? parsed.slice(0, 5) : [];
+    return Array.isArray(parsed) ? parsed.slice(0, MAX_RECENT_BRANCHES) : [];
   } catch {
     return [];
   }
@@ -98,7 +99,7 @@ export const App = (): JSX.Element => {
         ...current.filter((item) => item.value !== branchName)
       ];
 
-      return next.slice(0, 5);
+      return next.slice(0, MAX_RECENT_BRANCHES);
     });
   };
 
