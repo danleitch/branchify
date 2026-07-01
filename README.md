@@ -2,6 +2,13 @@
 
 Branchify is a lightweight static React + TypeScript utility for generating clean, consistent Git branch names in seconds.
 
+It ships as a self-contained Docker image, so you can run it wherever you like —
+a spare port on your laptop, a VPS, or a homelab box behind your own reverse
+proxy. There's no backend, database, or external service: it's a single static
+site served by Nginx. I run my own instance from a self-hosted server at home,
+and you're free to spin up your own the same way (see
+[Docker (Static Hosting)](#docker-static-hosting) below).
+
 <img width="499" height="361" alt="image" src="https://github.com/user-attachments/assets/460553d6-db0d-4e29-ab59-4c06fa1ae305" />
 
 ## Features
@@ -19,6 +26,7 @@ Branchify is a lightweight static React + TypeScript utility for generating clea
 Branchify uses a simple, consistent branch naming pattern:
 
 ### With Ticket Number
+
 ```
 <type>/<ticket-number>/<details>
 ```
@@ -26,6 +34,7 @@ Branchify uses a simple, consistent branch naming pattern:
 **Example:** `feat/BRF-123/add-user-authentication`
 
 ### Without Ticket Number
+
 ```
 <type>/<details>
 ```
@@ -43,22 +52,26 @@ Branchify uses a simple, consistent branch naming pattern:
 Once you generate a branch name, Branchify provides three outputs:
 
 ### Branch Name
+
 The formatted Git branch name ready to use, e.g.:
+
 ```
 feat/add-user-authentication
 ```
 
 ### Git Command
+
 A complete, ready-to-paste command to create and checkout the branch:
+
 ```
 git checkout -b "feat/add-user-authentication"
 ```
 
-### PR Title (when ticket number provided)
-A properly formatted pull request title following conventional commits:
-```
-feat/BRF-123: Add user authentication.
-```
+### PR Title
+
+A properly formatted pull request title following conventional commits. With a
+ticket it becomes `feat/BRF-123: Add user authentication.`; without one it falls
+back to `feat: Add user authentication.`
 
 All three outputs are one-click copyable for quick pasting into your terminal or PR form.
 
@@ -66,7 +79,33 @@ All three outputs are one-click copyable for quick pasting into your terminal or
 
 - [Vite](https://vite.dev/) (build + dev server)
 - React + TypeScript
+- [Vitest](https://vitest.dev/) + [Testing Library](https://testing-library.com/) for tests
+- ESLint + Prettier for linting and formatting
 - Nginx for static Docker hosting
+
+## Project Structure
+
+```
+src/
+  app.tsx                     # Orchestrates state and composes the UI
+  main.tsx                    # React entry point
+  types.ts                    # Shared domain types
+  components/
+    branch-form.tsx           # Input form (type, ticket, description)
+    branch-outputs.tsx        # Generated branch, git command, PR title
+    recent-branches.tsx       # Recently generated branches list
+    copy-button.tsx           # Copy-to-clipboard button with feedback
+    particles-background.tsx  # Animated background
+  hooks/
+    use-recent-branches.ts    # Recent-branch state + persistence
+  lib/
+    branch-utils.ts           # Pure branch/PR-title formatting logic
+    storage.ts                # Safe localStorage helpers + parsing
+```
+
+Presentation lives in `components/`, reusable stateful behaviour in `hooks/`,
+and all pure logic in `lib/` so it can be unit-tested in isolation. Every module
+stays well under 250 lines.
 
 ## Local Development
 
@@ -76,6 +115,20 @@ npm run dev
 ```
 
 Then open the local URL shown by Vite (typically `http://localhost:5173`).
+
+## Testing & Quality
+
+```bash
+npm test            # run the unit and component test suite once
+npm run test:watch  # watch mode for local development
+npm run coverage    # run tests with a coverage report
+npm run lint        # ESLint
+npm run format      # apply Prettier formatting
+```
+
+The pure logic in `src/lib/` is covered by fast unit tests, and the React
+components are exercised with Testing Library. CI runs lint, formatting, tests,
+and a production build before any Docker image is built.
 
 ## Production Build
 

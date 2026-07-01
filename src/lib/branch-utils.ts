@@ -36,12 +36,9 @@ export const formatPullRequestDescription = (value: string): string => {
     return '';
   }
 
-  const sentenceCaseValue =
-    normalizedValue.charAt(0).toUpperCase() + normalizedValue.slice(1);
+  const sentenceCaseValue = normalizedValue.charAt(0).toUpperCase() + normalizedValue.slice(1);
 
-  return /[.!?]$/.test(sentenceCaseValue)
-    ? sentenceCaseValue
-    : `${sentenceCaseValue}.`;
+  return /[.!?]$/.test(sentenceCaseValue) ? sentenceCaseValue : `${sentenceCaseValue}.`;
 };
 
 export const generateBranchName = ({

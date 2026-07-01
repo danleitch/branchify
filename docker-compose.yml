@@ -6,5 +6,5 @@ services:
     image: branchify:latest
     container_name: branchify
     ports:
-      - "80"
+      - '80'
     restart: unless-stopped
