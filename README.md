@@ -2,6 +2,8 @@
 
 Branchify is a lightweight static React + TypeScript utility for generating clean, consistent Git branch names in seconds.
 
+<img width="499" height="361" alt="image" src="https://github.com/user-attachments/assets/460553d6-db0d-4e29-ab59-4c06fa1ae305" />
+
 ## Features
 
 - Fast branch name generation with simple inputs
