@@ -75,6 +75,53 @@ describe('App', () => {
     expect(screen.queryByText('feat/BRF-9-some-work')).not.toBeInTheDocument();
   });
 
+  it('shows the default naming pattern using the default separators', () => {
+    render(<App />);
+
+    expect(screen.getByText("'<type>/<ticket-id>-<description>'")).toBeInTheDocument();
+  });
+
+  it('updates the naming pattern to reflect chosen separators', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    await user.clear(screen.getByLabelText('Type / ticket separator'));
+    await user.type(screen.getByLabelText('Type / ticket separator'), '_');
+    await user.clear(screen.getByLabelText('Ticket / description separator'));
+    await user.type(screen.getByLabelText('Ticket / description separator'), '.');
+
+    expect(screen.getByText("'<type>_<ticket-id>.<description>'")).toBeInTheDocument();
+  });
+
+  it('applies full type names and custom separators from the settings panel', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await fillForm(user, { ticket: 'BRWT-1123', description: 'this is the branch name' });
+
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    await user.click(screen.getByRole('checkbox'));
+    await user.clear(screen.getByLabelText('Ticket / description separator'));
+    await user.type(screen.getByLabelText('Ticket / description separator'), '_');
+
+    expect(screen.getByText('feature/BRWT-1123_this-is-the-branch-name')).toBeInTheDocument();
+  });
+
+  it('persists settings across a remount', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    await user.click(screen.getByRole('checkbox'));
+    unmount();
+
+    render(<App />);
+    await fillForm(user, { description: 'Broken login' });
+
+    expect(screen.getByText('feature/broken-login')).toBeInTheDocument();
+  });
+
   it('restores persisted form values from localStorage', () => {
     window.localStorage.setItem(
       'branchify-form',

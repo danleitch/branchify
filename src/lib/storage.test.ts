@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { EMPTY_FORM, parseForm, parseRecentBranches } from './storage';
+import {
+  DEFAULT_SETTINGS,
+  EMPTY_FORM,
+  parseForm,
+  parseRecentBranches,
+  parseSettings
+} from './storage';
 
 describe('parseForm', () => {
   it('returns the empty form when nothing is stored', () => {
@@ -54,5 +60,41 @@ describe('parseRecentBranches', () => {
 
   it('returns an empty array for malformed JSON', () => {
     expect(parseRecentBranches('[oops')).toEqual([]);
+  });
+});
+
+describe('parseSettings', () => {
+  it('returns the default settings when nothing is stored', () => {
+    expect(parseSettings(null)).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('merges stored values over the defaults', () => {
+    expect(parseSettings(JSON.stringify({ useFullTypeName: true }))).toEqual({
+      ...DEFAULT_SETTINGS,
+      useFullTypeName: true
+    });
+  });
+
+  it('accepts custom separators', () => {
+    expect(parseSettings(JSON.stringify({ typeSeparator: '_', ticketSeparator: '.' }))).toEqual({
+      ...DEFAULT_SETTINGS,
+      typeSeparator: '_',
+      ticketSeparator: '.'
+    });
+  });
+
+  it('strips whitespace and caps the length of separators', () => {
+    expect(parseSettings(JSON.stringify({ typeSeparator: '  a b c d  ' }))).toEqual({
+      ...DEFAULT_SETTINGS,
+      typeSeparator: 'abc'
+    });
+  });
+
+  it('falls back to defaults for non-string separator values', () => {
+    expect(parseSettings(JSON.stringify({ typeSeparator: 42 }))).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('falls back to the default settings for malformed JSON', () => {
+    expect(parseSettings('{ not json')).toEqual(DEFAULT_SETTINGS);
   });
 });

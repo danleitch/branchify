@@ -1,3 +1,5 @@
+import type { BranchSettings } from '../types';
+
 export const BRANCH_TYPES = [
   'feat',
   'fix',
@@ -11,6 +13,25 @@ export const BRANCH_TYPES = [
 ] as const;
 
 export type BranchType = (typeof BRANCH_TYPES)[number];
+
+/** Full-word forms for types that are commonly abbreviated. Types not listed display as-is. */
+export const FULL_TYPE_NAMES: Partial<Record<BranchType, string>> = {
+  feat: 'feature'
+};
+
+export const DEFAULT_NAMING_SETTINGS: BranchSettings = {
+  useFullTypeName: false,
+  typeSeparator: '/',
+  ticketSeparator: '-'
+};
+
+export const getDisplayType = (branchType: string, useFullTypeName: boolean): string => {
+  if (!useFullTypeName) {
+    return branchType;
+  }
+
+  return FULL_TYPE_NAMES[branchType as BranchType] ?? branchType;
+};
 
 export type BranchInput = {
   branchType: string;
@@ -41,40 +62,40 @@ export const formatPullRequestDescription = (value: string): string => {
   return /[.!?]$/.test(sentenceCaseValue) ? sentenceCaseValue : `${sentenceCaseValue}.`;
 };
 
-export const generateBranchName = ({
-  branchType,
-  ticketNumber,
-  description
-}: BranchInput): string => {
+export const generateBranchName = (
+  { branchType, ticketNumber, description }: BranchInput,
+  settings: BranchSettings = DEFAULT_NAMING_SETTINGS
+): string => {
   const normalizedDescription = slugifyDescription(description);
   const normalizedTicket = normalizeTicket(ticketNumber);
+  const displayType = getDisplayType(branchType, settings.useFullTypeName);
 
   if (!branchType || !normalizedDescription) {
     return '';
   }
 
   if (!normalizedTicket) {
-    return `${branchType}/${normalizedDescription}`;
+    return `${displayType}${settings.typeSeparator}${normalizedDescription}`;
   }
 
-  return `${branchType}/${normalizedTicket}-${normalizedDescription}`;
+  return `${displayType}${settings.typeSeparator}${normalizedTicket}${settings.ticketSeparator}${normalizedDescription}`;
 };
 
-export const generatePullRequestTitle = ({
-  branchType,
-  ticketNumber,
-  description
-}: BranchInput): string => {
+export const generatePullRequestTitle = (
+  { branchType, ticketNumber, description }: BranchInput,
+  settings: BranchSettings = DEFAULT_NAMING_SETTINGS
+): string => {
   const formattedDescription = formatPullRequestDescription(description);
   const normalizedTicket = normalizeTicket(ticketNumber);
+  const displayType = getDisplayType(branchType, settings.useFullTypeName);
 
   if (!branchType || !formattedDescription) {
     return '';
   }
 
   if (!normalizedTicket) {
-    return `${branchType}: ${formattedDescription}`;
+    return `${displayType}: ${formattedDescription}`;
   }
 
-  return `${branchType}/${normalizedTicket}: ${formattedDescription}`;
+  return `${displayType}${settings.typeSeparator}${normalizedTicket}: ${formattedDescription}`;
 };

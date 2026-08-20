@@ -97,6 +97,42 @@ describe('generateBranchName', () => {
   it('returns an empty string when the branch type is missing', () => {
     expect(generateBranchName({ branchType: '', ticketNumber: '', description: 'x' })).toBe('');
   });
+
+  it('uses the full type name when useFullTypeName is enabled', () => {
+    expect(
+      generateBranchName(
+        { branchType: 'feat', ticketNumber: 'BRF-123', description: 'Add user authentication' },
+        { useFullTypeName: true, typeSeparator: '/', ticketSeparator: '-' }
+      )
+    ).toBe('feature/BRF-123-add-user-authentication');
+  });
+
+  it('leaves types without a full-name mapping unchanged', () => {
+    expect(
+      generateBranchName(
+        { branchType: 'fix', ticketNumber: '', description: 'Broken login' },
+        { useFullTypeName: true, typeSeparator: '/', ticketSeparator: '-' }
+      )
+    ).toBe('fix/broken-login');
+  });
+
+  it('honors custom type and ticket separators', () => {
+    expect(
+      generateBranchName(
+        { branchType: 'feat', ticketNumber: 'BRWT-1123', description: 'this is the branch name' },
+        { useFullTypeName: false, typeSeparator: '/', ticketSeparator: '_' }
+      )
+    ).toBe('feat/BRWT-1123_this-is-the-branch-name');
+  });
+
+  it('applies custom separators even without a ticket', () => {
+    expect(
+      generateBranchName(
+        { branchType: 'fix', ticketNumber: '', description: 'broken login' },
+        { useFullTypeName: false, typeSeparator: '_', ticketSeparator: '-' }
+      )
+    ).toBe('fix_broken-login');
+  });
 });
 
 describe('generatePullRequestTitle', () => {
@@ -120,6 +156,15 @@ describe('generatePullRequestTitle', () => {
     expect(
       generatePullRequestTitle({ branchType: 'feat', ticketNumber: 'BRF-1', description: '   ' })
     ).toBe('');
+  });
+
+  it('uses the full type name and custom type separator when configured', () => {
+    expect(
+      generatePullRequestTitle(
+        { branchType: 'feat', ticketNumber: 'BRF-123', description: 'add user authentication' },
+        { useFullTypeName: true, typeSeparator: '_', ticketSeparator: '-' }
+      )
+    ).toBe('feature_BRF-123: Add user authentication.');
   });
 });
 
