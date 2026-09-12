@@ -1,6 +1,7 @@
 import type { BranchSettings } from '../types';
 
 export const BRANCH_TYPES = [
+  'feature',
   'feat',
   'fix',
   'bugfix',
@@ -14,23 +15,9 @@ export const BRANCH_TYPES = [
 
 export type BranchType = (typeof BRANCH_TYPES)[number];
 
-/** Full-word forms for types that are commonly abbreviated. Types not listed display as-is. */
-export const FULL_TYPE_NAMES: Partial<Record<BranchType, string>> = {
-  feat: 'feature'
-};
-
 export const DEFAULT_NAMING_SETTINGS: BranchSettings = {
-  useFullTypeName: false,
   typeSeparator: '/',
   ticketSeparator: '-'
-};
-
-export const getDisplayType = (branchType: string, useFullTypeName: boolean): string => {
-  if (!useFullTypeName) {
-    return branchType;
-  }
-
-  return FULL_TYPE_NAMES[branchType as BranchType] ?? branchType;
 };
 
 export type BranchInput = {
@@ -68,17 +55,16 @@ export const generateBranchName = (
 ): string => {
   const normalizedDescription = slugifyDescription(description);
   const normalizedTicket = normalizeTicket(ticketNumber);
-  const displayType = getDisplayType(branchType, settings.useFullTypeName);
 
   if (!branchType || !normalizedDescription) {
     return '';
   }
 
   if (!normalizedTicket) {
-    return `${displayType}${settings.typeSeparator}${normalizedDescription}`;
+    return `${branchType}${settings.typeSeparator}${normalizedDescription}`;
   }
 
-  return `${displayType}${settings.typeSeparator}${normalizedTicket}${settings.ticketSeparator}${normalizedDescription}`;
+  return `${branchType}${settings.typeSeparator}${normalizedTicket}${settings.ticketSeparator}${normalizedDescription}`;
 };
 
 export const generatePullRequestTitle = (
@@ -87,15 +73,14 @@ export const generatePullRequestTitle = (
 ): string => {
   const formattedDescription = formatPullRequestDescription(description);
   const normalizedTicket = normalizeTicket(ticketNumber);
-  const displayType = getDisplayType(branchType, settings.useFullTypeName);
 
   if (!branchType || !formattedDescription) {
     return '';
   }
 
   if (!normalizedTicket) {
-    return `${displayType}: ${formattedDescription}`;
+    return `${branchType}: ${formattedDescription}`;
   }
 
-  return `${displayType}${settings.typeSeparator}${normalizedTicket}: ${formattedDescription}`;
+  return `${branchType}${settings.typeSeparator}${normalizedTicket}: ${formattedDescription}`;
 };

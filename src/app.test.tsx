@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from './app';
+
+const AUTOSAVE_IDLE_MS = 5 * 60 * 1000;
 
 const fillForm = async (
   user: ReturnType<typeof userEvent.setup>,
@@ -14,8 +16,16 @@ const fillForm = async (
 };
 
 describe('App', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('generates a branch name, git command, and PR title from the form', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<App />);
 
     await fillForm(user, { ticket: 'BRF-123', description: 'Add user authentication' });
@@ -27,33 +37,40 @@ describe('App', () => {
     expect(screen.getByText('feat/BRF-123: Add user authentication.')).toBeInTheDocument();
   });
 
-  it('shows a validation error on submit when the description is empty', async () => {
-    const user = userEvent.setup();
-    render(<App />);
-
-    await user.click(screen.getByRole('button', { name: 'Generate' }));
-
-    expect(screen.getByRole('alert')).toHaveTextContent(/please fill all fields/i);
-  });
-
-  it('adds a generated branch to the recent list on submit', async () => {
-    const user = userEvent.setup();
+  it('adds the branch to the recent list after 5 minutes without changes', async () => {
+    const user = userEvent.setup({ delay: null });
     render(<App />);
 
     await fillForm(user, { description: 'Broken login' });
-    await user.click(screen.getByRole('button', { name: 'Generate' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTOSAVE_IDLE_MS);
+    });
 
     const recent = screen.getByRole('heading', { name: 'Recent branches' }).closest('section');
     expect(recent).not.toBeNull();
     expect(within(recent as HTMLElement).getByText('feat/broken-login')).toBeInTheDocument();
   });
 
-  it('removes a branch from the recent list', async () => {
-    const user = userEvent.setup();
+  it('does not save to the recent list before the idle window elapses', async () => {
+    const user = userEvent.setup({ delay: null });
     render(<App />);
 
     await fillForm(user, { description: 'Broken login' });
-    await user.click(screen.getByRole('button', { name: 'Generate' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTOSAVE_IDLE_MS - 1000);
+    });
+
+    expect(screen.queryByRole('heading', { name: 'Recent branches' })).not.toBeInTheDocument();
+  });
+
+  it('removes a branch from the recent list', async () => {
+    const user = userEvent.setup({ delay: null });
+    render(<App />);
+
+    await fillForm(user, { description: 'Broken login' });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTOSAVE_IDLE_MS);
+    });
     await user.click(screen.getByRole('button', { name: 'Remove feat/broken-login' }));
 
     // The recent list is now empty, so the whole section disappears (the branch
@@ -62,13 +79,13 @@ describe('App', () => {
   });
 
   it('clears the form on reset', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<App />);
 
     await fillForm(user, { ticket: 'BRF-9', description: 'Some work' });
     expect(screen.getByText('feat/BRF-9-some-work')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Reset' }));
+    await user.click(screen.getByRole('button', { name: 'Reset form' }));
 
     expect(screen.getByLabelText('Description')).toHaveValue('');
     expect(screen.getByLabelText('Ticket number')).toHaveValue('');
@@ -82,44 +99,55 @@ describe('App', () => {
   });
 
   it('updates the naming pattern to reflect chosen separators', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<App />);
 
-    await user.click(screen.getByRole('button', { name: 'Settings' }));
-    await user.clear(screen.getByLabelText('Type / ticket separator'));
-    await user.type(screen.getByLabelText('Type / ticket separator'), '_');
-    await user.clear(screen.getByLabelText('Ticket / description separator'));
-    await user.type(screen.getByLabelText('Ticket / description separator'), '.');
+    const [typeSeparator, ticketSeparator] = screen.getAllByLabelText('Separator');
+    await user.clear(typeSeparator);
+    await user.type(typeSeparator, '_');
+    await user.clear(ticketSeparator);
+    await user.type(ticketSeparator, '.');
 
     expect(screen.getByText("'<type>_<ticket-id>.<description>'")).toBeInTheDocument();
   });
 
-  it('applies full type names and custom separators from the settings panel', async () => {
-    const user = userEvent.setup();
+  it('places a separator field between branch type and ticket number, and after ticket number', async () => {
+    const user = userEvent.setup({ delay: null });
     render(<App />);
 
-    await fillForm(user, { ticket: 'BRWT-1123', description: 'this is the branch name' });
+    const [typeSeparator, ticketSeparator] = screen.getAllByLabelText('Separator');
+    await user.clear(typeSeparator);
+    await user.type(typeSeparator, '_');
+    await user.clear(ticketSeparator);
+    await user.type(ticketSeparator, '.');
+    await fillForm(user, { ticket: 'BRF-1', description: 'some work' });
 
-    await user.click(screen.getByRole('button', { name: 'Settings' }));
-    await user.click(screen.getByRole('checkbox'));
-    await user.clear(screen.getByLabelText('Ticket / description separator'));
-    await user.type(screen.getByLabelText('Ticket / description separator'), '_');
-
-    expect(screen.getByText('feature/BRWT-1123_this-is-the-branch-name')).toBeInTheDocument();
+    expect(screen.getByText('feat_BRF-1.some-work')).toBeInTheDocument();
   });
 
-  it('persists settings across a remount', async () => {
-    const user = userEvent.setup();
+  it('offers both the full and abbreviated form of a type in the dropdown', async () => {
+    const user = userEvent.setup({ delay: null });
+    render(<App />);
+
+    await user.selectOptions(screen.getByLabelText('Branch type'), 'feature');
+    await fillForm(user, { ticket: 'BRWT-1123', description: 'this is the branch name' });
+
+    expect(screen.getByText('feature/BRWT-1123-this-is-the-branch-name')).toBeInTheDocument();
+  });
+
+  it('persists separator settings across a remount', async () => {
+    const user = userEvent.setup({ delay: null });
     const { unmount } = render(<App />);
 
-    await user.click(screen.getByRole('button', { name: 'Settings' }));
-    await user.click(screen.getByRole('checkbox'));
+    const [typeSeparator] = screen.getAllByLabelText('Separator');
+    await user.clear(typeSeparator);
+    await user.type(typeSeparator, '_');
     unmount();
 
     render(<App />);
     await fillForm(user, { description: 'Broken login' });
 
-    expect(screen.getByText('feature/broken-login')).toBeInTheDocument();
+    expect(screen.getByText('feat_broken-login')).toBeInTheDocument();
   });
 
   it('restores persisted form values from localStorage', () => {

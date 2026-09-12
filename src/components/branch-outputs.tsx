@@ -20,20 +20,20 @@ export const BranchOutputs = ({
       <article>
         <h2>Branch name</h2>
         <code>{branchName}</code>
-        <CopyButton value={branchName} idleLabel="Copy branch" />
+        <CopyButton value={branchName} />
       </article>
 
       <article>
         <h2>Git command</h2>
         <code>{gitCommand}</code>
-        <CopyButton value={gitCommand} idleLabel="Copy command" />
+        <CopyButton value={gitCommand} />
       </article>
 
       {pullRequestTitle ? (
         <article className="output-wide">
           <h2>PR title</h2>
           <code>{pullRequestTitle}</code>
-          <CopyButton value={pullRequestTitle} idleLabel="Copy PR title" />
+          <CopyButton value={pullRequestTitle} />
         </article>
       ) : null}
     </section>

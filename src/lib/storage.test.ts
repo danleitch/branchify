@@ -68,13 +68,6 @@ describe('parseSettings', () => {
     expect(parseSettings(null)).toEqual(DEFAULT_SETTINGS);
   });
 
-  it('merges stored values over the defaults', () => {
-    expect(parseSettings(JSON.stringify({ useFullTypeName: true }))).toEqual({
-      ...DEFAULT_SETTINGS,
-      useFullTypeName: true
-    });
-  });
-
   it('accepts custom separators', () => {
     expect(parseSettings(JSON.stringify({ typeSeparator: '_', ticketSeparator: '.' }))).toEqual({
       ...DEFAULT_SETTINGS,

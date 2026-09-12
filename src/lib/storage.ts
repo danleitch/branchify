@@ -66,10 +66,6 @@ export const parseSettings = (raw: string | null): BranchSettings => {
     const parsed = JSON.parse(raw) as Partial<BranchSettings>;
 
     return {
-      useFullTypeName:
-        typeof parsed.useFullTypeName === 'boolean'
-          ? parsed.useFullTypeName
-          : DEFAULT_SETTINGS.useFullTypeName,
       typeSeparator: sanitizeSeparator(parsed.typeSeparator, DEFAULT_SETTINGS.typeSeparator),
       ticketSeparator: sanitizeSeparator(parsed.ticketSeparator, DEFAULT_SETTINGS.ticketSeparator)
     };

@@ -98,29 +98,21 @@ describe('generateBranchName', () => {
     expect(generateBranchName({ branchType: '', ticketNumber: '', description: 'x' })).toBe('');
   });
 
-  it('uses the full type name when useFullTypeName is enabled', () => {
+  it('uses the branch type exactly as provided, including full type names', () => {
     expect(
-      generateBranchName(
-        { branchType: 'feat', ticketNumber: 'BRF-123', description: 'Add user authentication' },
-        { useFullTypeName: true, typeSeparator: '/', ticketSeparator: '-' }
-      )
+      generateBranchName({
+        branchType: 'feature',
+        ticketNumber: 'BRF-123',
+        description: 'Add user authentication'
+      })
     ).toBe('feature/BRF-123-add-user-authentication');
-  });
-
-  it('leaves types without a full-name mapping unchanged', () => {
-    expect(
-      generateBranchName(
-        { branchType: 'fix', ticketNumber: '', description: 'Broken login' },
-        { useFullTypeName: true, typeSeparator: '/', ticketSeparator: '-' }
-      )
-    ).toBe('fix/broken-login');
   });
 
   it('honors custom type and ticket separators', () => {
     expect(
       generateBranchName(
         { branchType: 'feat', ticketNumber: 'BRWT-1123', description: 'this is the branch name' },
-        { useFullTypeName: false, typeSeparator: '/', ticketSeparator: '_' }
+        { typeSeparator: '/', ticketSeparator: '_' }
       )
     ).toBe('feat/BRWT-1123_this-is-the-branch-name');
   });
@@ -129,7 +121,7 @@ describe('generateBranchName', () => {
     expect(
       generateBranchName(
         { branchType: 'fix', ticketNumber: '', description: 'broken login' },
-        { useFullTypeName: false, typeSeparator: '_', ticketSeparator: '-' }
+        { typeSeparator: '_', ticketSeparator: '-' }
       )
     ).toBe('fix_broken-login');
   });
@@ -158,18 +150,19 @@ describe('generatePullRequestTitle', () => {
     ).toBe('');
   });
 
-  it('uses the full type name and custom type separator when configured', () => {
+  it('uses the branch type exactly as provided with a custom type separator', () => {
     expect(
       generatePullRequestTitle(
-        { branchType: 'feat', ticketNumber: 'BRF-123', description: 'add user authentication' },
-        { useFullTypeName: true, typeSeparator: '_', ticketSeparator: '-' }
+        { branchType: 'feature', ticketNumber: 'BRF-123', description: 'add user authentication' },
+        { typeSeparator: '_', ticketSeparator: '-' }
       )
     ).toBe('feature_BRF-123: Add user authentication.');
   });
 });
 
 describe('BRANCH_TYPES', () => {
-  it('exposes the supported conventional-commit types', () => {
+  it('exposes both the full and abbreviated forms of the feature type', () => {
+    expect(BRANCH_TYPES).toContain('feature');
     expect(BRANCH_TYPES).toContain('feat');
     expect(BRANCH_TYPES).toContain('fix');
     expect(new Set(BRANCH_TYPES).size).toBe(BRANCH_TYPES.length);

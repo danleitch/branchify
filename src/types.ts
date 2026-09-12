@@ -10,7 +10,6 @@ export type RecentBranch = {
 };
 
 export type BranchSettings = {
-  useFullTypeName: boolean;
   typeSeparator: string;
   ticketSeparator: string;
 };

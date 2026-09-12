@@ -2,10 +2,9 @@ import { useEffect, useState } from 'react';
 
 type CopyButtonProps = {
   value: string;
-  idleLabel: string;
 };
 
-export const CopyButton = ({ value, idleLabel }: CopyButtonProps): JSX.Element => {
+export const CopyButton = ({ value }: CopyButtonProps): JSX.Element => {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -32,7 +31,7 @@ export const CopyButton = ({ value, idleLabel }: CopyButtonProps): JSX.Element =
 
   return (
     <button className="btn btn-secondary" type="button" onClick={handleCopy}>
-      {copied ? 'Copied!' : idleLabel}
+      {copied ? 'Copied!' : 'Copy'}
     </button>
   );
 };

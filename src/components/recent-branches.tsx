@@ -19,7 +19,7 @@ export const RecentBranches = ({ branches, onRemove }: RecentBranchesProps): JSX
           <li key={item.createdAt}>
             <code>{item.value}</code>
             <div className="recent-actions">
-              <CopyButton value={item.value} idleLabel="Copy" />
+              <CopyButton value={item.value} />
               <button
                 className="btn-remove"
                 type="button"

@@ -3,27 +3,24 @@ import { BRANCH_TYPES } from '../lib/branch-utils';
 
 type BranchFormProps = {
   form: PersistedForm;
-  showError: boolean;
+  typeSeparator: string;
+  ticketSeparator: string;
   onChange: (patch: Partial<PersistedForm>) => void;
-  onSubmit: () => void;
-  onReset: () => void;
+  onTypeSeparatorChange: (value: string) => void;
+  onTicketSeparatorChange: (value: string) => void;
 };
 
 export const BranchForm = ({
   form,
-  showError,
+  typeSeparator,
+  ticketSeparator,
   onChange,
-  onSubmit,
-  onReset
+  onTypeSeparatorChange,
+  onTicketSeparatorChange
 }: BranchFormProps): JSX.Element => {
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    onSubmit();
-  };
-
   return (
-    <>
-      <form className="form-grid" onSubmit={handleSubmit}>
+    <form className="form-grid" onSubmit={(event) => event.preventDefault()}>
+      <div className="type-ticket-row">
         <label>
           Branch type
           <select
@@ -38,6 +35,16 @@ export const BranchForm = ({
           </select>
         </label>
 
+        <label className="separator-field">
+          Separator
+          <input
+            type="text"
+            maxLength={3}
+            value={typeSeparator}
+            onChange={(event) => onTypeSeparatorChange(event.target.value)}
+          />
+        </label>
+
         <label>
           Ticket number
           <input
@@ -48,30 +55,26 @@ export const BranchForm = ({
           />
         </label>
 
-        <label>
-          Description
+        <label className="separator-field">
+          Separator
           <input
             type="text"
-            placeholder="brief summary of work"
-            value={form.description}
-            onChange={(event) => onChange({ description: event.target.value })}
+            maxLength={3}
+            value={ticketSeparator}
+            onChange={(event) => onTicketSeparatorChange(event.target.value)}
           />
         </label>
+      </div>
 
-        <button className="btn" type="submit">
-          Generate
-        </button>
-
-        <button className="btn btn-secondary" type="button" onClick={onReset}>
-          Reset
-        </button>
-      </form>
-
-      {showError ? (
-        <p className="error" role="alert">
-          Please fill all fields to generate a branch.
-        </p>
-      ) : null}
-    </>
+      <label>
+        Description
+        <input
+          type="text"
+          placeholder="brief summary of work"
+          value={form.description}
+          onChange={(event) => onChange({ description: event.target.value })}
+        />
+      </label>
+    </form>
   );
 };
