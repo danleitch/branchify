@@ -1,16 +1,16 @@
 import type { BranchSettings } from '../types';
 
 export const BRANCH_TYPES = [
-  'feature',
-  'feat',
-  'fix',
   'bugfix',
   'chore',
+  'experiment',
+  'feat',
+  'feature',
+  'fix',
   'refactor',
   'release',
   'style',
   'test',
-  'experiment'
 ] as const;
 
 export type BranchType = (typeof BRANCH_TYPES)[number];
