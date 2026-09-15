@@ -70,7 +70,7 @@ export const BranchForm = ({
         Description
         <input
           type="text"
-          placeholder="brief summary of work"
+          placeholder="Brief summary of work ✒️"
           value={form.description}
           onChange={(event) => onChange({ description: event.target.value })}
         />

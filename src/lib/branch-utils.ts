@@ -3,6 +3,7 @@ import type { BranchSettings } from '../types';
 export const BRANCH_TYPES = [
   'bugfix',
   'chore',
+  'docs',
   'experiment',
   'feat',
   'feature',
