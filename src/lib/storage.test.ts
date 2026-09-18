@@ -63,6 +63,28 @@ describe('parseRecentBranches', () => {
   });
 });
 
+describe('parseRecentBranches snapshots', () => {
+  const entry = { value: 'feat/x', createdAt: '2026-01-01T00:00:00.000Z' };
+  const form = { branchType: 'feat', ticketNumber: '', description: 'x' };
+  const separators = { typeSeparator: '/', ticketSeparator: '-' };
+
+  it('keeps a complete form and separators snapshot', () => {
+    const raw = JSON.stringify([{ ...entry, form, separators }]);
+    expect(parseRecentBranches(raw)).toEqual([{ ...entry, form, separators }]);
+  });
+
+  it('drops a snapshot that is incomplete or malformed', () => {
+    const raw = JSON.stringify([
+      { ...entry, form },
+      { ...entry, createdAt: '2026-01-02T00:00:00.000Z', form: { branchType: 1 }, separators }
+    ]);
+    expect(parseRecentBranches(raw)).toEqual([
+      entry,
+      { ...entry, createdAt: '2026-01-02T00:00:00.000Z' }
+    ]);
+  });
+});
+
 describe('parseSettings', () => {
   it('returns the default settings when nothing is stored', () => {
     expect(parseSettings(null)).toEqual(DEFAULT_SETTINGS);
@@ -85,6 +107,26 @@ describe('parseSettings', () => {
 
   it('falls back to defaults for non-string separator values', () => {
     expect(parseSettings(JSON.stringify({ typeSeparator: 42 }))).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('defaults branch types for settings saved before they were configurable', () => {
+    expect(parseSettings(JSON.stringify({ typeSeparator: '_' })).branchTypes).toEqual(
+      DEFAULT_SETTINGS.branchTypes
+    );
+  });
+
+  it('accepts custom branch types, sanitising and de-duplicating them', () => {
+    const raw = JSON.stringify({ branchTypes: ['Bug', 'bug', ' new type ', '!!!', 42] });
+    expect(parseSettings(raw).branchTypes).toEqual(['bug', 'new-type']);
+  });
+
+  it('falls back to the default types when none are valid', () => {
+    expect(parseSettings(JSON.stringify({ branchTypes: [] })).branchTypes).toEqual(
+      DEFAULT_SETTINGS.branchTypes
+    );
+    expect(parseSettings(JSON.stringify({ branchTypes: 'bug' })).branchTypes).toEqual(
+      DEFAULT_SETTINGS.branchTypes
+    );
   });
 
   it('falls back to the default settings for malformed JSON', () => {

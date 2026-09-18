@@ -10,7 +10,7 @@ import {
 
 type UseRecentBranches = {
   recentBranches: RecentBranch[];
-  addRecentBranch: (value: string) => void;
+  addRecentBranch: (value: string, snapshot: Pick<RecentBranch, 'form' | 'separators'>) => void;
   removeRecentBranch: (createdAt: string) => void;
 };
 
@@ -27,18 +27,21 @@ export const useRecentBranches = (): UseRecentBranches => {
     writeStorage(RECENT_STORAGE_KEY, JSON.stringify(recentBranches));
   }, [recentBranches]);
 
-  const addRecentBranch = useCallback((value: string): void => {
-    if (!value) {
-      return;
-    }
+  const addRecentBranch = useCallback(
+    (value: string, snapshot: Pick<RecentBranch, 'form' | 'separators'>): void => {
+      if (!value) {
+        return;
+      }
 
-    setRecentBranches((current) =>
-      [
-        { value, createdAt: new Date().toISOString() },
-        ...current.filter((item) => item.value !== value)
-      ].slice(0, MAX_RECENT_BRANCHES)
-    );
-  }, []);
+      setRecentBranches((current) =>
+        [
+          { value, createdAt: new Date().toISOString(), ...snapshot },
+          ...current.filter((item) => item.value !== value)
+        ].slice(0, MAX_RECENT_BRANCHES)
+      );
+    },
+    []
+  );
 
   const removeRecentBranch = useCallback((createdAt: string): void => {
     setRecentBranches((current) => current.filter((item) => item.createdAt !== createdAt));

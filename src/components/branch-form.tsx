@@ -1,8 +1,8 @@
 import type { PersistedForm } from '../types';
-import { BRANCH_TYPES } from '../lib/branch-utils';
 
 type BranchFormProps = {
   form: PersistedForm;
+  branchTypes: string[];
   typeSeparator: string;
   ticketSeparator: string;
   onChange: (patch: Partial<PersistedForm>) => void;
@@ -12,12 +12,18 @@ type BranchFormProps = {
 
 export const BranchForm = ({
   form,
+  branchTypes,
   typeSeparator,
   ticketSeparator,
   onChange,
   onTypeSeparatorChange,
   onTicketSeparatorChange
 }: BranchFormProps): JSX.Element => {
+  // Keep the current type selectable even if it was removed from settings or came from history.
+  const typeOptions = branchTypes.includes(form.branchType)
+    ? branchTypes
+    : [form.branchType, ...branchTypes];
+
   return (
     <form className="form-grid" onSubmit={(event) => event.preventDefault()}>
       <div className="type-ticket-row">
@@ -27,7 +33,7 @@ export const BranchForm = ({
             value={form.branchType}
             onChange={(event) => onChange({ branchType: event.target.value })}
           >
-            {BRANCH_TYPES.map((type) => (
+            {typeOptions.map((type) => (
               <option key={type} value={type}>
                 {type}
               </option>

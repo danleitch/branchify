@@ -3,10 +3,17 @@ import { CopyButton } from './copy-button';
 
 type RecentBranchesProps = {
   branches: RecentBranch[];
+  canLoad: (item: RecentBranch) => boolean;
+  onLoad: (item: RecentBranch) => void;
   onRemove: (createdAt: string) => void;
 };
 
-export const RecentBranches = ({ branches, onRemove }: RecentBranchesProps): JSX.Element | null => {
+export const RecentBranches = ({
+  branches,
+  canLoad,
+  onLoad,
+  onRemove
+}: RecentBranchesProps): JSX.Element | null => {
   if (branches.length === 0) {
     return null;
   }
@@ -19,6 +26,16 @@ export const RecentBranches = ({ branches, onRemove }: RecentBranchesProps): JSX
           <li key={item.createdAt}>
             <code>{item.value}</code>
             <div className="recent-actions">
+              <button
+                className="btn btn-secondary"
+                type="button"
+                onClick={() => onLoad(item)}
+                disabled={!canLoad(item)}
+                title={canLoad(item) ? 'Load into the form' : 'Cannot be loaded into the form'}
+                aria-label={`Load ${item.value}`}
+              >
+                Load
+              </button>
               <CopyButton value={item.value} />
               <button
                 className="btn-remove"

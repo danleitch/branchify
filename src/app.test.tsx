@@ -150,6 +150,164 @@ describe('App', () => {
     expect(screen.getByText('feat_broken-login')).toBeInTheDocument();
   });
 
+  describe('branch type settings', () => {
+    const openSettings = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
+      await user.click(screen.getByRole('button', { name: 'Settings' }));
+      return screen.getByRole('dialog', { name: 'Settings' });
+    };
+
+    it('adds a custom type that can be used in the branch name', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openSettings(user);
+      await user.type(within(dialog).getByLabelText('New branch type'), 'Bug{Enter}');
+      await user.click(within(dialog).getByRole('button', { name: 'Close settings' }));
+
+      await user.selectOptions(screen.getByLabelText('Branch type'), 'bug');
+      await fillForm(user, { description: 'Broken login' });
+
+      expect(screen.getByText('bug/broken-login')).toBeInTheDocument();
+    });
+
+    it('rejects duplicate and invalid types', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openSettings(user);
+      await user.type(within(dialog).getByLabelText('New branch type'), 'feat{Enter}');
+      expect(within(dialog).getByRole('alert')).toHaveTextContent('already exists');
+
+      await user.clear(within(dialog).getByLabelText('New branch type'));
+      await user.type(within(dialog).getByLabelText('New branch type'), '!!!{Enter}');
+      expect(within(dialog).getByRole('alert')).toHaveTextContent('Use letters');
+    });
+
+    it('removes a type and restores the defaults', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openSettings(user);
+      await user.click(within(dialog).getByRole('button', { name: 'Remove type style' }));
+      expect(screen.queryByRole('option', { name: 'style' })).not.toBeInTheDocument();
+      expect(within(dialog).queryByRole('button', { name: 'Remove type style' })).toBeNull();
+
+      await user.click(within(dialog).getByRole('button', { name: 'Restore defaults' }));
+      expect(within(dialog).getByRole('button', { name: 'Remove type style' })).toBeInTheDocument();
+    });
+
+    it('closes on Escape and returns focus to the settings button', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      await openSettings(user);
+      await user.keyboard('{Escape}');
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Settings' })).toHaveFocus();
+    });
+
+    it('persists custom types across a remount', async () => {
+      const user = userEvent.setup({ delay: null });
+      const { unmount } = render(<App />);
+
+      const dialog = await openSettings(user);
+      await user.type(within(dialog).getByLabelText('New branch type'), 'bug{Enter}');
+      unmount();
+
+      render(<App />);
+
+      expect(screen.getByRole('option', { name: 'bug' })).toBeInTheDocument();
+    });
+
+    it('keeps a removed type selectable while it is the current selection', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openSettings(user);
+      await user.click(within(dialog).getByRole('button', { name: 'Remove type feat' }));
+
+      expect(screen.getByLabelText('Branch type')).toHaveValue('feat');
+    });
+  });
+
+  describe('loading recent branches', () => {
+    const recentSection = (): HTMLElement =>
+      screen.getByRole('heading', { name: 'Recent branches' }).closest('section') as HTMLElement;
+
+    it('loads a saved branch back into the form so all outputs are available', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      await fillForm(user, { ticket: 'BRF-5', description: 'Old work' });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTOSAVE_IDLE_MS);
+      });
+      await user.click(screen.getByRole('button', { name: 'Reset form' }));
+      expect(screen.queryByText('git checkout -b "feat/BRF-5-old-work"')).not.toBeInTheDocument();
+
+      await user.click(
+        within(recentSection()).getByRole('button', { name: 'Load feat/BRF-5-old-work' })
+      );
+
+      expect(screen.getByLabelText('Ticket number')).toHaveValue('BRF-5');
+      expect(screen.getByLabelText('Description')).toHaveValue('Old work');
+      expect(screen.getByText('git checkout -b "feat/BRF-5-old-work"')).toBeInTheDocument();
+      expect(screen.getByText('feat/BRF-5: Old work.')).toBeInTheDocument();
+    });
+
+    it('restores the separators used when the branch was saved', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const [typeSeparator] = screen.getAllByLabelText('Separator');
+      await user.clear(typeSeparator);
+      await user.type(typeSeparator, '_');
+      await fillForm(user, { description: 'Some work' });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTOSAVE_IDLE_MS);
+      });
+
+      await user.clear(screen.getAllByLabelText('Separator')[0]);
+      await user.type(screen.getAllByLabelText('Separator')[0], '/');
+      await user.click(
+        within(recentSection()).getByRole('button', { name: 'Load feat_some-work' })
+      );
+
+      expect(screen.getAllByLabelText('Separator')[0]).toHaveValue('_');
+      expect(screen.getByText('git checkout -b "feat_some-work"')).toBeInTheDocument();
+    });
+
+    it('loads legacy entries that were saved without a form snapshot', async () => {
+      const user = userEvent.setup({ delay: null });
+      window.localStorage.setItem(
+        'branchify-recent',
+        JSON.stringify([{ value: 'fix/BRF-7-restore-me', createdAt: '2026-01-01T00:00:00.000Z' }])
+      );
+      render(<App />);
+
+      await user.click(
+        within(recentSection()).getByRole('button', { name: 'Load fix/BRF-7-restore-me' })
+      );
+
+      expect(screen.getByLabelText('Branch type')).toHaveValue('fix');
+      expect(screen.getByLabelText('Ticket number')).toHaveValue('BRF-7');
+      expect(screen.getByLabelText('Description')).toHaveValue('restore me');
+    });
+
+    it('disables Load for legacy entries that cannot be parsed', () => {
+      window.localStorage.setItem(
+        'branchify-recent',
+        JSON.stringify([{ value: 'weird-name', createdAt: '2026-01-01T00:00:00.000Z' }])
+      );
+      render(<App />);
+
+      expect(
+        within(recentSection()).getByRole('button', { name: 'Load weird-name' })
+      ).toBeDisabled();
+    });
+  });
+
   it('restores persisted form values from localStorage', () => {
     window.localStorage.setItem(
       'branchify-form',
