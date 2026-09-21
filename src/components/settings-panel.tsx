@@ -4,6 +4,8 @@ import { MAX_BRANCH_TYPE_LENGTH, sanitizeBranchType } from '../lib/branch-utils'
 
 type SettingsPanelProps = {
   branchTypes: string[];
+  showAiLinks: boolean;
+  onShowAiLinksChange: (show: boolean) => void;
   onAddType: (type: string) => void;
   onRemoveType: (type: string) => void;
   onResetTypes: () => void;
@@ -12,6 +14,8 @@ type SettingsPanelProps = {
 
 export const SettingsPanel = ({
   branchTypes,
+  showAiLinks,
+  onShowAiLinksChange,
   onAddType,
   onRemoveType,
   onResetTypes,
@@ -132,6 +136,18 @@ export const SettingsPanel = ({
           <button type="button" className="btn btn-secondary" onClick={onResetTypes}>
             Restore defaults
           </button>
+        </section>
+
+        <section>
+          <h3>Description</h3>
+          <label className="settings-toggle">
+            <input
+              type="checkbox"
+              checked={showAiLinks}
+              onChange={(event) => onShowAiLinksChange(event.target.checked)}
+            />
+            Show AI shorten icons (ChatGPT &amp; Claude)
+          </label>
         </section>
       </div>
     </div>

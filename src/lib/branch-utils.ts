@@ -20,7 +20,8 @@ export const MAX_BRANCH_TYPE_LENGTH = 20;
 export const DEFAULT_NAMING_SETTINGS: BranchSettings = {
   typeSeparator: '/',
   ticketSeparator: '-',
-  branchTypes: [...DEFAULT_BRANCH_TYPES]
+  branchTypes: [...DEFAULT_BRANCH_TYPES],
+  showAiLinks: true
 };
 
 export type BranchInput = {

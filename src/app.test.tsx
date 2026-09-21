@@ -231,6 +231,42 @@ describe('App', () => {
     });
   });
 
+  describe('AI shorten icons setting', () => {
+    const openSettings = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
+      await user.click(screen.getByRole('button', { name: 'Settings' }));
+      return screen.getByRole('dialog', { name: 'Settings' });
+    };
+
+    it('shows the icons by default and hides them when the toggle is turned off', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+      expect(screen.getByRole('group', { name: 'Shorten with AI' })).toBeInTheDocument();
+
+      const dialog = await openSettings(user);
+      const toggle = within(dialog).getByRole('checkbox', { name: /AI shorten icons/ });
+      expect(toggle).toBeChecked();
+
+      await user.click(toggle);
+      expect(screen.queryByRole('group', { name: 'Shorten with AI' })).not.toBeInTheDocument();
+
+      await user.click(toggle);
+      expect(screen.getByRole('group', { name: 'Shorten with AI' })).toBeInTheDocument();
+    });
+
+    it('persists the choice across a remount', async () => {
+      const user = userEvent.setup({ delay: null });
+      const { unmount } = render(<App />);
+
+      const dialog = await openSettings(user);
+      await user.click(within(dialog).getByRole('checkbox', { name: /AI shorten icons/ }));
+      unmount();
+
+      render(<App />);
+
+      expect(screen.queryByRole('group', { name: 'Shorten with AI' })).not.toBeInTheDocument();
+    });
+  });
+
   describe('loading recent branches', () => {
     const recentSection = (): HTMLElement =>
       screen.getByRole('heading', { name: 'Recent branches' }).closest('section') as HTMLElement;

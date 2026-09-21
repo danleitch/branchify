@@ -82,7 +82,9 @@ export const parseSettings = (raw: string | null): BranchSettings => {
     return {
       typeSeparator: sanitizeSeparator(parsed.typeSeparator, DEFAULT_SETTINGS.typeSeparator),
       ticketSeparator: sanitizeSeparator(parsed.ticketSeparator, DEFAULT_SETTINGS.ticketSeparator),
-      branchTypes: sanitizeBranchTypes(parsed.branchTypes)
+      branchTypes: sanitizeBranchTypes(parsed.branchTypes),
+      showAiLinks:
+        typeof parsed.showAiLinks === 'boolean' ? parsed.showAiLinks : DEFAULT_SETTINGS.showAiLinks
     };
   } catch {
     return DEFAULT_SETTINGS;

@@ -129,6 +129,12 @@ describe('parseSettings', () => {
     );
   });
 
+  it('shows the AI links by default and accepts a stored boolean', () => {
+    expect(parseSettings(JSON.stringify({ typeSeparator: '_' })).showAiLinks).toBe(true);
+    expect(parseSettings(JSON.stringify({ showAiLinks: false })).showAiLinks).toBe(false);
+    expect(parseSettings(JSON.stringify({ showAiLinks: 'no' })).showAiLinks).toBe(true);
+  });
+
   it('falls back to the default settings for malformed JSON', () => {
     expect(parseSettings('{ not json')).toEqual(DEFAULT_SETTINGS);
   });

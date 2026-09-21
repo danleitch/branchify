@@ -176,6 +176,7 @@ export const App = (): JSX.Element => {
           typeSeparator={settings.typeSeparator}
           ticketSeparator={settings.ticketSeparator}
           aiTargets={aiTargets}
+          showAiLinks={settings.showAiLinks}
           onChange={handleChange}
           onTypeSeparatorChange={handleTypeSeparatorChange}
           onTicketSeparatorChange={handleTicketSeparatorChange}
@@ -198,6 +199,8 @@ export const App = (): JSX.Element => {
       {settingsOpen && (
         <SettingsPanel
           branchTypes={settings.branchTypes}
+          showAiLinks={settings.showAiLinks}
+          onShowAiLinksChange={(showAiLinks) => handleSettingsChange({ showAiLinks })}
           onAddType={handleAddType}
           onRemoveType={handleRemoveType}
           onResetTypes={handleResetTypes}
