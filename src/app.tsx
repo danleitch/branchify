@@ -6,6 +6,7 @@ import { ResetButton } from './components/reset-button';
 import { SettingsButton } from './components/settings-button';
 import { SettingsPanel } from './components/settings-panel';
 import { useRecentBranches } from './hooks/use-recent-branches';
+import { buildAiHandoffTargets } from './lib/ai-handoff';
 import {
   DEFAULT_BRANCH_TYPES,
   generateBranchName,
@@ -62,6 +63,7 @@ export const App = (): JSX.Element => {
     () => generatePullRequestTitle(form, settings),
     [form, settings]
   );
+  const aiTargets = useMemo(() => buildAiHandoffTargets(form, settings), [form, settings]);
   const gitCommand = branchName ? `git checkout -b "${branchName}"` : '';
   const namingPattern = `<type>${settings.typeSeparator}<ticket-id>${settings.ticketSeparator}<description>`;
 
@@ -173,6 +175,7 @@ export const App = (): JSX.Element => {
           branchTypes={settings.branchTypes}
           typeSeparator={settings.typeSeparator}
           ticketSeparator={settings.ticketSeparator}
+          aiTargets={aiTargets}
           onChange={handleChange}
           onTypeSeparatorChange={handleTypeSeparatorChange}
           onTicketSeparatorChange={handleTicketSeparatorChange}

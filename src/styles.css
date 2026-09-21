@@ -208,6 +208,44 @@ body {
   gap: 0.9rem;
 }
 
+.description-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.description-row label {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-handoff {
+  display: flex;
+  align-items: center;
+  /* Match the input's height so the icons sit centred beside it. */
+  height: 2.9rem;
+}
+
+.ai-link {
+  text-decoration: none;
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+a.ai-link:hover {
+  transform: scale(1.12);
+}
+
+.ai-link[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.ai-link[aria-disabled='true']:hover {
+  color: #9ca3af;
+}
+
 .separator-field {
   justify-items: center;
   text-align: center;
