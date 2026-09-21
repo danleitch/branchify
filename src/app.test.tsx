@@ -10,7 +10,7 @@ const fillForm = async (
   { ticket, description }: { ticket?: string; description: string }
 ): Promise<void> => {
   if (ticket !== undefined) {
-    await user.type(screen.getByLabelText('Ticket number'), ticket);
+    await user.type(screen.getByLabelText('Ticket ID'), ticket);
   }
   await user.type(screen.getByLabelText('Description'), description);
 };
@@ -88,7 +88,7 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Reset form' }));
 
     expect(screen.getByLabelText('Description')).toHaveValue('');
-    expect(screen.getByLabelText('Ticket number')).toHaveValue('');
+    expect(screen.getByLabelText('Ticket ID')).toHaveValue('');
     expect(screen.queryByText('feat/BRF-9-some-work')).not.toBeInTheDocument();
   });
 
@@ -250,7 +250,7 @@ describe('App', () => {
         within(recentSection()).getByRole('button', { name: 'Load feat/BRF-5-old-work' })
       );
 
-      expect(screen.getByLabelText('Ticket number')).toHaveValue('BRF-5');
+      expect(screen.getByLabelText('Ticket ID')).toHaveValue('BRF-5');
       expect(screen.getByLabelText('Description')).toHaveValue('Old work');
       expect(screen.getByText('git checkout -b "feat/BRF-5-old-work"')).toBeInTheDocument();
       expect(screen.getByText('feat/BRF-5: Old work.')).toBeInTheDocument();
@@ -291,7 +291,7 @@ describe('App', () => {
       );
 
       expect(screen.getByLabelText('Branch type')).toHaveValue('fix');
-      expect(screen.getByLabelText('Ticket number')).toHaveValue('BRF-7');
+      expect(screen.getByLabelText('Ticket ID')).toHaveValue('BRF-7');
       expect(screen.getByLabelText('Description')).toHaveValue('restore me');
     });
 
@@ -305,6 +305,36 @@ describe('App', () => {
       expect(
         within(recentSection()).getByRole('button', { name: 'Load weird-name' })
       ).toBeDisabled();
+    });
+  });
+
+  describe('AI shortening links', () => {
+    it('shows inert ChatGPT and Claude icons until there is a branch name', () => {
+      render(<App />);
+
+      expect(screen.getByRole('link', { name: 'Shorten in ChatGPT' })).toHaveAttribute(
+        'aria-disabled',
+        'true'
+      );
+      expect(screen.getByRole('link', { name: 'Shorten in Claude' })).not.toHaveAttribute('href');
+    });
+
+    it('links out to both assistants with the branch name in the prompt', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      await fillForm(user, { ticket: 'BRF-1', description: 'Add user authentication' });
+
+      const claude = screen.getByRole('link', { name: 'Shorten in Claude' });
+      const chatgpt = screen.getByRole('link', { name: 'Shorten in ChatGPT' });
+      const prompt = (link: HTMLElement): string =>
+        new URL(link.getAttribute('href') as string).searchParams.get('q') as string;
+
+      expect(claude.getAttribute('href')).toMatch(/^https:\/\/claude\.ai\/new\?q=/);
+      expect(chatgpt.getAttribute('href')).toMatch(/^https:\/\/chatgpt\.com\/\?q=/);
+      expect(prompt(claude)).toContain('Add user authentication');
+      expect(claude).toHaveAttribute('target', '_blank');
+      expect(claude).toHaveAttribute('rel', 'noopener noreferrer');
     });
   });
 

@@ -1,10 +1,13 @@
+import type { AiHandoffTarget } from '../lib/ai-handoff';
 import type { PersistedForm } from '../types';
+import { AiHandoffLinks } from './ai-handoff-links';
 
 type BranchFormProps = {
   form: PersistedForm;
   branchTypes: string[];
   typeSeparator: string;
   ticketSeparator: string;
+  aiTargets: AiHandoffTarget[];
   onChange: (patch: Partial<PersistedForm>) => void;
   onTypeSeparatorChange: (value: string) => void;
   onTicketSeparatorChange: (value: string) => void;
@@ -15,6 +18,7 @@ export const BranchForm = ({
   branchTypes,
   typeSeparator,
   ticketSeparator,
+  aiTargets,
   onChange,
   onTypeSeparatorChange,
   onTicketSeparatorChange
@@ -72,15 +76,18 @@ export const BranchForm = ({
         </label>
       </div>
 
-      <label>
-        Description
-        <input
-          type="text"
-          placeholder="Brief summary of work ✒️"
-          value={form.description}
-          onChange={(event) => onChange({ description: event.target.value })}
-        />
-      </label>
+      <div className="description-row">
+        <label>
+          Description
+          <input
+            type="text"
+            placeholder="Brief summary of work ✒️"
+            value={form.description}
+            onChange={(event) => onChange({ description: event.target.value })}
+          />
+        </label>
+        <AiHandoffLinks targets={aiTargets} />
+      </div>
     </form>
   );
 };
