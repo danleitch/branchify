@@ -52,7 +52,7 @@ export const BranchForm = ({
         </label>
 
         <label>
-          Ticket number
+          Ticket ID
           <input
             type="text"
             placeholder="PROJECT-123"
