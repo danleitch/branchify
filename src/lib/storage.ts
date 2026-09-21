@@ -1,5 +1,5 @@
-import type { BranchSettings, PersistedForm, RecentBranch } from '../types';
-import { DEFAULT_NAMING_SETTINGS } from './branch-utils';
+import type { BranchSeparators, BranchSettings, PersistedForm, RecentBranch } from '../types';
+import { DEFAULT_NAMING_SETTINGS, sanitizeBranchType } from './branch-utils';
 
 export const FORM_STORAGE_KEY = 'branchify-form';
 export const RECENT_STORAGE_KEY = 'branchify-recent';
@@ -57,6 +57,20 @@ const sanitizeSeparator = (value: unknown, fallback: string): string => {
   return value.replace(/\s+/g, '').slice(0, MAX_SEPARATOR_LENGTH);
 };
 
+/** Sanitises and de-duplicates stored branch types; falls back to defaults when none survive. */
+const sanitizeBranchTypes = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [...DEFAULT_SETTINGS.branchTypes];
+  }
+
+  const types = value
+    .filter((item): item is string => typeof item === 'string')
+    .map(sanitizeBranchType)
+    .filter((type, index, all) => type !== '' && all.indexOf(type) === index);
+
+  return types.length > 0 ? types : [...DEFAULT_SETTINGS.branchTypes];
+};
+
 export const parseSettings = (raw: string | null): BranchSettings => {
   if (!raw) {
     return DEFAULT_SETTINGS;
@@ -67,12 +81,38 @@ export const parseSettings = (raw: string | null): BranchSettings => {
 
     return {
       typeSeparator: sanitizeSeparator(parsed.typeSeparator, DEFAULT_SETTINGS.typeSeparator),
-      ticketSeparator: sanitizeSeparator(parsed.ticketSeparator, DEFAULT_SETTINGS.ticketSeparator)
+      ticketSeparator: sanitizeSeparator(parsed.ticketSeparator, DEFAULT_SETTINGS.ticketSeparator),
+      branchTypes: sanitizeBranchTypes(parsed.branchTypes)
     };
   } catch {
     return DEFAULT_SETTINGS;
   }
 };
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const parseSnapshotForm = (value: unknown): PersistedForm | undefined =>
+  isRecord(value) &&
+  typeof value.branchType === 'string' &&
+  typeof value.ticketNumber === 'string' &&
+  typeof value.description === 'string'
+    ? {
+        branchType: value.branchType,
+        ticketNumber: value.ticketNumber,
+        description: value.description
+      }
+    : undefined;
+
+const parseSnapshotSeparators = (value: unknown): BranchSeparators | undefined =>
+  isRecord(value) &&
+  typeof value.typeSeparator === 'string' &&
+  typeof value.ticketSeparator === 'string'
+    ? {
+        typeSeparator: sanitizeSeparator(value.typeSeparator, DEFAULT_SETTINGS.typeSeparator),
+        ticketSeparator: sanitizeSeparator(value.ticketSeparator, DEFAULT_SETTINGS.ticketSeparator)
+      }
+    : undefined;
 
 export const parseRecentBranches = (raw: string | null): RecentBranch[] => {
   if (!raw) {
@@ -87,13 +127,21 @@ export const parseRecentBranches = (raw: string | null): RecentBranch[] => {
 
     return parsed
       .filter(
-        (item): item is RecentBranch =>
-          typeof item === 'object' &&
-          item !== null &&
-          typeof (item as RecentBranch).value === 'string' &&
-          typeof (item as RecentBranch).createdAt === 'string'
+        (item): item is Record<string, unknown> =>
+          isRecord(item) && typeof item.value === 'string' && typeof item.createdAt === 'string'
       )
-      .slice(0, MAX_RECENT_BRANCHES);
+      .slice(0, MAX_RECENT_BRANCHES)
+      .map((item): RecentBranch => {
+        const form = parseSnapshotForm(item.form);
+        const separators = parseSnapshotSeparators(item.separators);
+
+        return {
+          value: item.value as string,
+          createdAt: item.createdAt as string,
+          // Only keep the snapshot when it is complete; a half-valid one can't be loaded reliably.
+          ...(form && separators ? { form, separators } : {})
+        };
+      });
   } catch {
     return [];
   }

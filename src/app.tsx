@@ -3,8 +3,15 @@ import { BranchForm } from './components/branch-form';
 import { BranchOutputs } from './components/branch-outputs';
 import { RecentBranches } from './components/recent-branches';
 import { ResetButton } from './components/reset-button';
+import { SettingsButton } from './components/settings-button';
+import { SettingsPanel } from './components/settings-panel';
 import { useRecentBranches } from './hooks/use-recent-branches';
-import { generateBranchName, generatePullRequestTitle } from './lib/branch-utils';
+import {
+  DEFAULT_BRANCH_TYPES,
+  generateBranchName,
+  generatePullRequestTitle,
+  parseBranchName
+} from './lib/branch-utils';
 import {
   EMPTY_FORM,
   FORM_STORAGE_KEY,
@@ -14,15 +21,40 @@ import {
   readStorage,
   writeStorage
 } from './lib/storage';
-import type { BranchSettings, PersistedForm } from './types';
+import type { BranchSeparators, BranchSettings, PersistedForm, RecentBranch } from './types';
 
 const AUTOSAVE_IDLE_MS = 5 * 60 * 1000;
+
+type LoadableBranch = { form: PersistedForm; separators: BranchSeparators };
+
+/** Uses the saved snapshot when present, otherwise tries to reverse-engineer legacy entries. */
+const resolveRecentBranch = (
+  item: RecentBranch,
+  settings: BranchSettings
+): LoadableBranch | null => {
+  if (item.form && item.separators) {
+    return { form: item.form, separators: item.separators };
+  }
+
+  const form = parseBranchName(item.value, settings);
+
+  return form
+    ? {
+        form,
+        separators: {
+          typeSeparator: settings.typeSeparator,
+          ticketSeparator: settings.ticketSeparator
+        }
+      }
+    : null;
+};
 
 export const App = (): JSX.Element => {
   const [form, setForm] = useState<PersistedForm>(() => parseForm(readStorage(FORM_STORAGE_KEY)));
   const [settings, setSettings] = useState<BranchSettings>(() =>
     parseSettings(readStorage(SETTINGS_STORAGE_KEY))
   );
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { recentBranches, addRecentBranch, removeRecentBranch } = useRecentBranches();
 
   const branchName = useMemo(() => generateBranchName(form, settings), [form, settings]);
@@ -48,7 +80,17 @@ export const App = (): JSX.Element => {
       return;
     }
 
-    const timer = setTimeout(() => addRecentBranch(branchName), AUTOSAVE_IDLE_MS);
+    const timer = setTimeout(
+      () =>
+        addRecentBranch(branchName, {
+          form,
+          separators: {
+            typeSeparator: settings.typeSeparator,
+            ticketSeparator: settings.ticketSeparator
+          }
+        }),
+      AUTOSAVE_IDLE_MS
+    );
 
     return () => clearTimeout(timer);
   }, [form, settings, branchName, addRecentBranch]);
@@ -69,8 +111,43 @@ export const App = (): JSX.Element => {
     handleSettingsChange({ ticketSeparator: value });
   };
 
+  const handleAddType = (type: string): void => {
+    setSettings((current) =>
+      current.branchTypes.includes(type)
+        ? current
+        : { ...current, branchTypes: [...current.branchTypes, type] }
+    );
+  };
+
+  const handleRemoveType = (type: string): void => {
+    setSettings((current) =>
+      current.branchTypes.length > 1
+        ? { ...current, branchTypes: current.branchTypes.filter((item) => item !== type) }
+        : current
+    );
+  };
+
+  const handleResetTypes = (): void => {
+    handleSettingsChange({ branchTypes: [...DEFAULT_BRANCH_TYPES] });
+  };
+
   const handleReset = (): void => {
     setForm(EMPTY_FORM);
+  };
+
+  const canLoadRecent = (item: RecentBranch): boolean =>
+    resolveRecentBranch(item, settings) !== null;
+
+  const handleLoadRecent = (item: RecentBranch): void => {
+    const loadable = resolveRecentBranch(item, settings);
+
+    if (!loadable) {
+      return;
+    }
+
+    setForm(loadable.form);
+    handleSettingsChange(loadable.separators);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -79,7 +156,10 @@ export const App = (): JSX.Element => {
         <header className="panel-header">
           <div className="panel-header-top">
             <h1>Branchify 🪾</h1>
-            <ResetButton onReset={handleReset} />
+            <div className="header-actions">
+              <SettingsButton expanded={settingsOpen} onClick={() => setSettingsOpen(true)} />
+              <ResetButton onReset={handleReset} />
+            </div>
           </div>
           <p>Create consistent Git branch names in one quick step.</p>
           <p>
@@ -90,6 +170,7 @@ export const App = (): JSX.Element => {
 
         <BranchForm
           form={form}
+          branchTypes={settings.branchTypes}
           typeSeparator={settings.typeSeparator}
           ticketSeparator={settings.ticketSeparator}
           onChange={handleChange}
@@ -103,8 +184,23 @@ export const App = (): JSX.Element => {
           pullRequestTitle={pullRequestTitle}
         />
 
-        <RecentBranches branches={recentBranches} onRemove={removeRecentBranch} />
+        <RecentBranches
+          branches={recentBranches}
+          canLoad={canLoadRecent}
+          onLoad={handleLoadRecent}
+          onRemove={removeRecentBranch}
+        />
       </section>
+
+      {settingsOpen && (
+        <SettingsPanel
+          branchTypes={settings.branchTypes}
+          onAddType={handleAddType}
+          onRemoveType={handleRemoveType}
+          onResetTypes={handleResetTypes}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
     </main>
   );
 };
