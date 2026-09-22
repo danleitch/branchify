@@ -1,10 +1,24 @@
-import type { BranchSeparators, BranchSettings, PersistedForm, RecentBranch } from '../types';
+import type {
+  BackgroundStyle,
+  BranchSeparators,
+  BranchSettings,
+  PersistedForm,
+  RecentBranch
+} from '../types';
 import { DEFAULT_NAMING_SETTINGS, sanitizeBranchType } from './branch-utils';
+import { DEFAULT_BASE_FISH, MAX_BASE_FISH, MIN_BASE_FISH } from './koi';
 
 export const FORM_STORAGE_KEY = 'branchify-form';
 export const RECENT_STORAGE_KEY = 'branchify-recent';
 export const SETTINGS_STORAGE_KEY = 'branchify-settings';
-export const MAX_RECENT_BRANCHES = 5;
+// Kept apart from the naming settings: the backdrop says nothing about branch names.
+export const BACKGROUND_STORAGE_KEY = 'branchify-background';
+// The pond's own setting, not a naming one either, and not read unless the
+// koi background is actually mounted.
+export const BASE_FISH_STORAGE_KEY = 'branchify-koi-base-fish';
+// Matches the pond's own cap, so a base fish count of 10 has ten real branches
+// to promote out of "resident" and into "yours" before the koi runs out.
+export const MAX_RECENT_BRANCHES = MAX_BASE_FISH;
 export const MAX_SEPARATOR_LENGTH = 3;
 
 export const EMPTY_FORM: PersistedForm = {
@@ -82,7 +96,9 @@ export const parseSettings = (raw: string | null): BranchSettings => {
     return {
       typeSeparator: sanitizeSeparator(parsed.typeSeparator, DEFAULT_SETTINGS.typeSeparator),
       ticketSeparator: sanitizeSeparator(parsed.ticketSeparator, DEFAULT_SETTINGS.ticketSeparator),
-      branchTypes: sanitizeBranchTypes(parsed.branchTypes)
+      branchTypes: sanitizeBranchTypes(parsed.branchTypes),
+      showAiLinks:
+        typeof parsed.showAiLinks === 'boolean' ? parsed.showAiLinks : DEFAULT_SETTINGS.showAiLinks
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -145,4 +161,23 @@ export const parseRecentBranches = (raw: string | null): RecentBranch[] => {
   } catch {
     return [];
   }
+};
+
+export const BACKGROUND_STYLES: readonly BackgroundStyle[] = ['koi', 'particles', 'plain'];
+
+export const DEFAULT_BACKGROUND: BackgroundStyle = 'koi';
+
+/** Falls back to the default for anything written by a future or broken version. */
+export const parseBackground = (raw: string | null): BackgroundStyle =>
+  BACKGROUND_STYLES.includes(raw as BackgroundStyle)
+    ? (raw as BackgroundStyle)
+    : DEFAULT_BACKGROUND;
+
+/** Falls back to the default for anything missing, non-numeric, or out of range. */
+export const parseBaseFish = (raw: string | null): number => {
+  const value = Number(raw);
+
+  return Number.isInteger(value) && value >= MIN_BASE_FISH && value <= MAX_BASE_FISH
+    ? value
+    : DEFAULT_BASE_FISH;
 };

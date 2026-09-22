@@ -24,7 +24,7 @@ export const BranchOutputs = ({
       </article>
 
       <article>
-        <h2>Git command</h2>
+        <h2>Checkout</h2>
         <code>{gitCommand}</code>
         <CopyButton value={gitCommand} />
       </article>

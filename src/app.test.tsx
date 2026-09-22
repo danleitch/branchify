@@ -231,6 +231,42 @@ describe('App', () => {
     });
   });
 
+  describe('AI shorten icons setting', () => {
+    const openSettings = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
+      await user.click(screen.getByRole('button', { name: 'Settings' }));
+      return screen.getByRole('dialog', { name: 'Settings' });
+    };
+
+    it('shows the icons by default and hides them when the toggle is turned off', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+      expect(screen.getByRole('group', { name: 'Shorten with AI' })).toBeInTheDocument();
+
+      const dialog = await openSettings(user);
+      const toggle = within(dialog).getByRole('checkbox', { name: /AI shorten icons/ });
+      expect(toggle).toBeChecked();
+
+      await user.click(toggle);
+      expect(screen.queryByRole('group', { name: 'Shorten with AI' })).not.toBeInTheDocument();
+
+      await user.click(toggle);
+      expect(screen.getByRole('group', { name: 'Shorten with AI' })).toBeInTheDocument();
+    });
+
+    it('persists the choice across a remount', async () => {
+      const user = userEvent.setup({ delay: null });
+      const { unmount } = render(<App />);
+
+      const dialog = await openSettings(user);
+      await user.click(within(dialog).getByRole('checkbox', { name: /AI shorten icons/ }));
+      unmount();
+
+      render(<App />);
+
+      expect(screen.queryByRole('group', { name: 'Shorten with AI' })).not.toBeInTheDocument();
+    });
+  });
+
   describe('loading recent branches', () => {
     const recentSection = (): HTMLElement =>
       screen.getByRole('heading', { name: 'Recent branches' }).closest('section') as HTMLElement;
@@ -335,6 +371,117 @@ describe('App', () => {
       expect(prompt(claude)).toContain('Add user authentication');
       expect(claude).toHaveAttribute('target', '_blank');
       expect(claude).toHaveAttribute('rel', 'noopener noreferrer');
+    });
+  });
+
+  describe('background setting', () => {
+    const openSettings = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
+      await user.click(screen.getByRole('button', { name: 'Settings' }));
+      return screen.getByRole('dialog', { name: 'Settings' });
+    };
+
+    it('swims the koi pond by default', () => {
+      const { container } = render(<App />);
+
+      expect(container.querySelector('canvas.koi-pond')).toBeInTheDocument();
+    });
+
+    it('switches to a plain background and drops the pond', async () => {
+      const user = userEvent.setup({ delay: null });
+      const { container } = render(<App />);
+
+      const dialog = await openSettings(user);
+      await user.click(within(dialog).getByRole('radio', { name: 'Plain' }));
+
+      expect(container.querySelector('canvas.koi-pond')).not.toBeInTheDocument();
+    });
+
+    it('remembers the chosen background across a remount', async () => {
+      const user = userEvent.setup({ delay: null });
+      const { unmount } = render(<App />);
+
+      const dialog = await openSettings(user);
+      await user.click(within(dialog).getByRole('radio', { name: 'Plain' }));
+      unmount();
+
+      const { container } = render(<App />);
+
+      expect(container.querySelector('canvas.koi-pond')).not.toBeInTheDocument();
+    });
+
+    it('falls back to the koi pond when the stored value is nonsense', () => {
+      window.localStorage.setItem('branchify-background', 'aquarium');
+
+      const { container } = render(<App />);
+
+      expect(container.querySelector('canvas.koi-pond')).toBeInTheDocument();
+    });
+  });
+
+  describe('base fish count setting', () => {
+    const openSettings = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
+      await user.click(screen.getByRole('button', { name: 'Settings' }));
+      return screen.getByRole('dialog', { name: 'Settings' });
+    };
+
+    it('defaults to 2 fish always in the pond', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openSettings(user);
+
+      expect(within(dialog).getByRole('combobox', { name: 'Fish always in the pond' })).toHaveValue(
+        '2'
+      );
+    });
+
+    it('only offers the setting while the koi pond is selected', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openSettings(user);
+      await user.click(within(dialog).getByRole('radio', { name: 'Plain' }));
+
+      expect(
+        within(dialog).queryByRole('combobox', { name: 'Fish always in the pond' })
+      ).not.toBeInTheDocument();
+
+      await user.click(within(dialog).getByRole('radio', { name: 'Koi pond' }));
+
+      expect(
+        within(dialog).getByRole('combobox', { name: 'Fish always in the pond' })
+      ).toBeInTheDocument();
+    });
+
+    it('remembers a raised base fish count across a remount', async () => {
+      const user = userEvent.setup({ delay: null });
+      const { unmount } = render(<App />);
+
+      const dialog = await openSettings(user);
+      await user.selectOptions(
+        within(dialog).getByRole('combobox', { name: 'Fish always in the pond' }),
+        '5'
+      );
+      unmount();
+
+      render(<App />);
+      const reopened = await openSettings(user);
+
+      expect(
+        within(reopened).getByRole('combobox', { name: 'Fish always in the pond' })
+      ).toHaveValue('5');
+    });
+
+    it('falls back to the default for a corrupt stored value', async () => {
+      window.localStorage.setItem('branchify-koi-base-fish', 'a lot');
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openSettings(user);
+
+      expect(within(dialog).getByRole('combobox', { name: 'Fish always in the pond' })).toHaveValue(
+        '2'
+      );
     });
   });
 
