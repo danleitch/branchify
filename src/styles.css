@@ -111,6 +111,15 @@ body {
   transform: rotate(60deg);
 }
 
+.github-icon {
+  display: inline-block;
+  transition: transform 0.3s ease;
+}
+
+.header-action:hover .github-icon {
+  transform: rotate(60deg);
+}
+
 .settings-backdrop {
   position: fixed;
   inset: 0;
@@ -289,6 +298,14 @@ body {
 
 a.ai-link:hover {
   transform: scale(1.12);
+}
+
+.ai-icon {
+  transition: transform 0.2s ease;
+}
+
+a.ai-link:hover .ai-icon {
+  transform: rotate(20deg);
 }
 
 .ai-link[aria-disabled='true'] {

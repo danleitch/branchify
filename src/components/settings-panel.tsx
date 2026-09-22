@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
+import { AI_PROVIDERS, AI_PROVIDER_LABELS } from '../lib/ai-handoff';
 import { MAX_BRANCH_TYPE_LENGTH, sanitizeBranchType } from '../lib/branch-utils';
 import { MAX_BASE_FISH, MIN_BASE_FISH } from '../lib/koi';
 import { BACKGROUND_STYLES } from '../lib/storage';
-import type { BackgroundStyle } from '../types';
+import type { AiProvider, BackgroundStyle } from '../types';
 
 const BACKGROUND_LABELS: Readonly<Record<BackgroundStyle, string>> = {
   koi: 'Koi pond',
@@ -24,8 +25,8 @@ type SettingsPanelProps = {
   /** How many koi swim at minimum; more join as branches are saved, up to the pond's cap. */
   baseFishCount: number;
   onBaseFishCountChange: (count: number) => void;
-  showAiLinks: boolean;
-  onShowAiLinksChange: (show: boolean) => void;
+  aiHandoffTargets: AiProvider[];
+  onAiHandoffTargetsChange: (targets: AiProvider[]) => void;
   onAddType: (type: string) => void;
   onRemoveType: (type: string) => void;
   onResetTypes: () => void;
@@ -38,8 +39,8 @@ export const SettingsPanel = ({
   onBackgroundChange,
   baseFishCount,
   onBaseFishCountChange,
-  showAiLinks,
-  onShowAiLinksChange,
+  aiHandoffTargets,
+  onAiHandoffTargetsChange,
   onAddType,
   onRemoveType,
   onResetTypes,
@@ -162,17 +163,28 @@ export const SettingsPanel = ({
           </button>
         </section>
 
-        <section>
-          <h3>Description</h3>
-          <label className="settings-toggle">
-            <input
-              type="checkbox"
-              checked={showAiLinks}
-              onChange={(event) => onShowAiLinksChange(event.target.checked)}
-            />
-            Show AI shorten icons (ChatGPT &amp; Claude)
-          </label>
-        </section>
+        <fieldset className="settings-fieldset">
+          <legend>AI shorten icons</legend>
+          {AI_PROVIDERS.map((provider) => (
+            <label key={provider} className="settings-toggle">
+              <input
+                type="checkbox"
+                checked={aiHandoffTargets.includes(provider)}
+                onChange={(event) => {
+                  onAiHandoffTargetsChange(
+                    event.target.checked
+                      ? [...aiHandoffTargets, provider]
+                      : aiHandoffTargets.filter((target) => target !== provider)
+                  );
+                }}
+              />
+              {AI_PROVIDER_LABELS[provider]}
+            </label>
+          ))}
+          <p className="settings-hint">
+            Choose which AI icons appear beside the description field.
+          </p>
+        </fieldset>
 
         <fieldset className="settings-fieldset">
           <legend>Background</legend>

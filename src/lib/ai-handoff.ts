@@ -1,11 +1,18 @@
-import type { BranchSettings } from '../types';
+import type { AiProvider, BranchSettings } from '../types';
 import { generateBranchName, type BranchInput } from './branch-utils';
 
 export type AiHandoffTarget = {
-  id: 'chatgpt' | 'claude';
+  id: AiProvider;
   label: string;
   /** Undefined until there is a branch name worth shortening. */
   href?: string;
+};
+
+export const AI_PROVIDERS: readonly AiProvider[] = ['chatgpt', 'claude'];
+
+export const AI_PROVIDER_LABELS: Readonly<Record<AiProvider, string>> = {
+  chatgpt: 'ChatGPT',
+  claude: 'Claude'
 };
 
 /** Asks an AI assistant to shorten only the description part of the current branch name. */

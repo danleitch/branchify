@@ -8,7 +8,6 @@ type BranchFormProps = {
   typeSeparator: string;
   ticketSeparator: string;
   aiTargets: AiHandoffTarget[];
-  showAiLinks: boolean;
   onChange: (patch: Partial<PersistedForm>) => void;
   onTypeSeparatorChange: (value: string) => void;
   onTicketSeparatorChange: (value: string) => void;
@@ -20,7 +19,6 @@ export const BranchForm = ({
   typeSeparator,
   ticketSeparator,
   aiTargets,
-  showAiLinks,
   onChange,
   onTypeSeparatorChange,
   onTicketSeparatorChange
@@ -88,7 +86,7 @@ export const BranchForm = ({
             onChange={(event) => onChange({ description: event.target.value })}
           />
         </label>
-        {showAiLinks && <AiHandoffLinks targets={aiTargets} />}
+        {aiTargets.length > 0 && <AiHandoffLinks targets={aiTargets} />}
       </div>
     </form>
   );

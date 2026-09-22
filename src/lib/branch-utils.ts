@@ -21,7 +21,7 @@ export const DEFAULT_NAMING_SETTINGS: BranchSettings = {
   typeSeparator: '/',
   ticketSeparator: '-',
   branchTypes: [...DEFAULT_BRANCH_TYPES],
-  showAiLinks: true
+  aiHandoffTargets: ['chatgpt', 'claude']
 };
 
 export type BranchInput = {

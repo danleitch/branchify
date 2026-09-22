@@ -237,28 +237,31 @@ describe('App', () => {
       return screen.getByRole('dialog', { name: 'Settings' });
     };
 
-    it('shows the icons by default and hides them when the toggle is turned off', async () => {
+    it('shows both icons by default and hides one when its checkbox is turned off', async () => {
       const user = userEvent.setup({ delay: null });
       render(<App />);
       expect(screen.getByRole('group', { name: 'Shorten with AI' })).toBeInTheDocument();
 
       const dialog = await openSettings(user);
-      const toggle = within(dialog).getByRole('checkbox', { name: /AI shorten icons/ });
-      expect(toggle).toBeChecked();
+      const chatgptToggle = within(dialog).getByRole('checkbox', { name: 'ChatGPT' });
+      expect(chatgptToggle).toBeChecked();
 
-      await user.click(toggle);
-      expect(screen.queryByRole('group', { name: 'Shorten with AI' })).not.toBeInTheDocument();
+      await user.click(chatgptToggle);
+      expect(screen.queryByRole('link', { name: 'Shorten in ChatGPT' })).not.toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Shorten in Claude' })).toBeInTheDocument();
 
-      await user.click(toggle);
-      expect(screen.getByRole('group', { name: 'Shorten with AI' })).toBeInTheDocument();
+      await user.click(chatgptToggle);
+      expect(screen.getByRole('link', { name: 'Shorten in ChatGPT' })).toBeInTheDocument();
     });
 
-    it('persists the choice across a remount', async () => {
+    it('hides the whole group once every icon is turned off, and persists the choice across a remount', async () => {
       const user = userEvent.setup({ delay: null });
       const { unmount } = render(<App />);
 
       const dialog = await openSettings(user);
-      await user.click(within(dialog).getByRole('checkbox', { name: /AI shorten icons/ }));
+      await user.click(within(dialog).getByRole('checkbox', { name: 'ChatGPT' }));
+      await user.click(within(dialog).getByRole('checkbox', { name: 'Claude' }));
+      expect(screen.queryByRole('group', { name: 'Shorten with AI' })).not.toBeInTheDocument();
       unmount();
 
       render(<App />);

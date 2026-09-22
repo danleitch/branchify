@@ -17,10 +17,13 @@ export type RecentBranch = {
   separators?: BranchSeparators;
 };
 
+/** An AI assistant the "shorten with AI" icons can hand a description off to. */
+export type AiProvider = 'chatgpt' | 'claude';
+
 export type BranchSettings = BranchSeparators & {
   branchTypes: string[];
-  /** Whether the "shorten with AI" icons appear beside the description field. */
-  showAiLinks: boolean;
+  /** Which "shorten with AI" icons appear beside the description field. */
+  aiHandoffTargets: AiProvider[];
 };
 
 /** Which backdrop the app draws behind the panel. */

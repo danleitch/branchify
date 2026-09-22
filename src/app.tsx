@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { BranchForm } from './components/branch-form';
 import { BranchOutputs } from './components/branch-outputs';
+import { GithubButton } from './components/github-button';
 import { RecentBranches } from './components/recent-branches';
 import { ResetButton } from './components/reset-button';
 import { SettingsButton } from './components/settings-button';
@@ -96,7 +97,13 @@ export const App = (): JSX.Element => {
     () => generatePullRequestTitle(form, settings),
     [form, settings]
   );
-  const aiTargets = useMemo(() => buildAiHandoffTargets(form, settings), [form, settings]);
+  const aiTargets = useMemo(
+    () =>
+      buildAiHandoffTargets(form, settings).filter((target) =>
+        settings.aiHandoffTargets.includes(target.id)
+      ),
+    [form, settings]
+  );
   const gitCommand = branchName ? `git checkout -b "${branchName}"` : '';
   const namingPattern = `<type>${settings.typeSeparator}<ticket-id>${settings.ticketSeparator}<description>`;
 
@@ -216,6 +223,7 @@ export const App = (): JSX.Element => {
             <div className="panel-header-top">
               <h1>Branchify 🪾</h1>
               <div className="header-actions">
+                <GithubButton />
                 <SettingsButton expanded={settingsOpen} onClick={() => setSettingsOpen(true)} />
                 <ResetButton onReset={handleReset} />
               </div>
@@ -233,7 +241,6 @@ export const App = (): JSX.Element => {
             typeSeparator={settings.typeSeparator}
             ticketSeparator={settings.ticketSeparator}
             aiTargets={aiTargets}
-            showAiLinks={settings.showAiLinks}
             onChange={handleChange}
             onTypeSeparatorChange={handleTypeSeparatorChange}
             onTicketSeparatorChange={handleTicketSeparatorChange}
@@ -260,8 +267,10 @@ export const App = (): JSX.Element => {
             onBackgroundChange={setBackground}
             baseFishCount={baseFishCount}
             onBaseFishCountChange={setBaseFishCount}
-            showAiLinks={settings.showAiLinks}
-            onShowAiLinksChange={(showAiLinks) => handleSettingsChange({ showAiLinks })}
+            aiHandoffTargets={settings.aiHandoffTargets}
+            onAiHandoffTargetsChange={(aiHandoffTargets) =>
+              handleSettingsChange({ aiHandoffTargets })
+            }
             onAddType={handleAddType}
             onRemoveType={handleRemoveType}
             onResetTypes={handleResetTypes}

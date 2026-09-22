@@ -1,10 +1,12 @@
 import type {
+  AiProvider,
   BackgroundStyle,
   BranchSeparators,
   BranchSettings,
   PersistedForm,
   RecentBranch
 } from '../types';
+import { AI_PROVIDERS } from './ai-handoff';
 import { DEFAULT_NAMING_SETTINGS, sanitizeBranchType } from './branch-utils';
 import { DEFAULT_BASE_FISH, MAX_BASE_FISH, MIN_BASE_FISH } from './koi';
 
@@ -85,20 +87,35 @@ const sanitizeBranchTypes = (value: unknown): string[] => {
   return types.length > 0 ? types : [...DEFAULT_SETTINGS.branchTypes];
 };
 
+/** Sanitises stored AI handoff targets; migrates the older `showAiLinks` boolean when present. */
+const sanitizeAiHandoffTargets = (value: unknown, legacyShowAiLinks: unknown): AiProvider[] => {
+  if (Array.isArray(value)) {
+    const targets = value.filter((item): item is AiProvider =>
+      AI_PROVIDERS.includes(item as AiProvider)
+    );
+    return [...new Set(targets)];
+  }
+
+  if (typeof legacyShowAiLinks === 'boolean') {
+    return legacyShowAiLinks ? [...AI_PROVIDERS] : [];
+  }
+
+  return [...DEFAULT_SETTINGS.aiHandoffTargets];
+};
+
 export const parseSettings = (raw: string | null): BranchSettings => {
   if (!raw) {
     return DEFAULT_SETTINGS;
   }
 
   try {
-    const parsed = JSON.parse(raw) as Partial<BranchSettings>;
+    const parsed = JSON.parse(raw) as Partial<BranchSettings> & { showAiLinks?: unknown };
 
     return {
       typeSeparator: sanitizeSeparator(parsed.typeSeparator, DEFAULT_SETTINGS.typeSeparator),
       ticketSeparator: sanitizeSeparator(parsed.ticketSeparator, DEFAULT_SETTINGS.ticketSeparator),
       branchTypes: sanitizeBranchTypes(parsed.branchTypes),
-      showAiLinks:
-        typeof parsed.showAiLinks === 'boolean' ? parsed.showAiLinks : DEFAULT_SETTINGS.showAiLinks
+      aiHandoffTargets: sanitizeAiHandoffTargets(parsed.aiHandoffTargets, parsed.showAiLinks)
     };
   } catch {
     return DEFAULT_SETTINGS;

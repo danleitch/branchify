@@ -16,7 +16,14 @@ export const AiHandoffLinks = ({ targets }: AiHandoffLinksProps): JSX.Element =>
   <div className="ai-handoff" role="group" aria-label="Shorten with AI">
     {targets.map(({ id, label, href }) => {
       const icon = (
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+        <svg
+          className="ai-icon"
+          viewBox="0 0 24 24"
+          width="22"
+          height="22"
+          fill="currentColor"
+          aria-hidden="true"
+        >
           <path d={ICON_PATHS[id]} />
         </svg>
       );
