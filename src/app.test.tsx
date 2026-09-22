@@ -418,6 +418,73 @@ describe('App', () => {
     });
   });
 
+  describe('base fish count setting', () => {
+    const openSettings = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
+      await user.click(screen.getByRole('button', { name: 'Settings' }));
+      return screen.getByRole('dialog', { name: 'Settings' });
+    };
+
+    it('defaults to 2 fish always in the pond', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openSettings(user);
+
+      expect(within(dialog).getByRole('combobox', { name: 'Fish always in the pond' })).toHaveValue(
+        '2'
+      );
+    });
+
+    it('only offers the setting while the koi pond is selected', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openSettings(user);
+      await user.click(within(dialog).getByRole('radio', { name: 'Plain' }));
+
+      expect(
+        within(dialog).queryByRole('combobox', { name: 'Fish always in the pond' })
+      ).not.toBeInTheDocument();
+
+      await user.click(within(dialog).getByRole('radio', { name: 'Koi pond' }));
+
+      expect(
+        within(dialog).getByRole('combobox', { name: 'Fish always in the pond' })
+      ).toBeInTheDocument();
+    });
+
+    it('remembers a raised base fish count across a remount', async () => {
+      const user = userEvent.setup({ delay: null });
+      const { unmount } = render(<App />);
+
+      const dialog = await openSettings(user);
+      await user.selectOptions(
+        within(dialog).getByRole('combobox', { name: 'Fish always in the pond' }),
+        '5'
+      );
+      unmount();
+
+      render(<App />);
+      const reopened = await openSettings(user);
+
+      expect(
+        within(reopened).getByRole('combobox', { name: 'Fish always in the pond' })
+      ).toHaveValue('5');
+    });
+
+    it('falls back to the default for a corrupt stored value', async () => {
+      window.localStorage.setItem('branchify-koi-base-fish', 'a lot');
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openSettings(user);
+
+      expect(within(dialog).getByRole('combobox', { name: 'Fish always in the pond' })).toHaveValue(
+        '2'
+      );
+    });
+  });
+
   it('restores persisted form values from localStorage', () => {
     window.localStorage.setItem(
       'branchify-form',

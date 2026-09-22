@@ -7,6 +7,8 @@ import { KoiBackground } from './koi-background';
 
 type Koi3dBackgroundProps = {
   recentBranches: readonly RecentBranch[];
+  /** The floor on how many koi swim; branches fill in before residents do, up to MAX_KOI. */
+  baseFishCount?: number;
   /** The panel, which the koi lean away from so they stay in view around it. */
   avoidRef?: RefObject<HTMLElement>;
 };
@@ -24,6 +26,7 @@ const prefersReducedMotion = (): boolean =>
 
 export const Koi3dBackground = ({
   recentBranches,
+  baseFishCount,
   avoidRef
 }: Koi3dBackgroundProps): JSX.Element => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -35,12 +38,12 @@ export const Koi3dBackground = ({
   // they wear is decided in one place whichever renderer draws them.
   const entries = useMemo<KoiEntry[]>(
     () =>
-      buildKoiRoster(recentBranches).map((descriptor) => ({
+      buildKoiRoster(recentBranches, baseFishCount).map((descriptor) => ({
         key: descriptor.key,
         seed: descriptor.seed,
         accent: descriptor.palette.marking
       })),
-    [recentBranches]
+    [recentBranches, baseFishCount]
   );
 
   const entriesRef = useRef(entries);
@@ -190,7 +193,13 @@ export const Koi3dBackground = ({
   }, [entries]);
 
   if (unavailable) {
-    return <KoiBackground recentBranches={recentBranches} avoidRef={avoidRef} />;
+    return (
+      <KoiBackground
+        recentBranches={recentBranches}
+        baseFishCount={baseFishCount}
+        avoidRef={avoidRef}
+      />
+    );
   }
 
   return (

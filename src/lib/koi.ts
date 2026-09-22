@@ -14,11 +14,20 @@ export type Vec2 = { x: number; y: number };
 /** How many joints describe one koi's centreline, nose to tail. */
 export const SPINE_JOINTS = 12;
 
-/** The most koi the pond ever holds, matching the recent-branch cap. */
-export const MAX_KOI = 5;
+/** The most koi the pond ever holds, at once, regardless of the base fish setting. */
+export const MAX_KOI = 10;
 
-/** Koi kept swimming even with nothing in the recent list, so the pond is never empty. */
-export const RESIDENT_KOI = 2;
+/** The narrowest base fish count Settings allows; the pond always shows at least one koi. */
+export const MIN_BASE_FISH = 1;
+
+/** The widest base fish count Settings allows; it can't exceed the pond's own cap. */
+export const MAX_BASE_FISH = MAX_KOI;
+
+/**
+ * How many koi swim with nothing in the recent list, unless the visitor has
+ * raised or lowered that floor in Settings.
+ */
+export const DEFAULT_BASE_FISH = 2;
 
 /** Undulation amplitude as a fraction of body length, per behavioural phase. */
 const PHASE_AMPLITUDE = { relaxed: 0.05, turning: 0.075 } as const;

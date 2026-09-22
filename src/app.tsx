@@ -15,10 +15,12 @@ import {
 } from './lib/branch-utils';
 import {
   BACKGROUND_STORAGE_KEY,
+  BASE_FISH_STORAGE_KEY,
   EMPTY_FORM,
   FORM_STORAGE_KEY,
   SETTINGS_STORAGE_KEY,
   parseBackground,
+  parseBaseFish,
   parseForm,
   parseSettings,
   readStorage,
@@ -84,6 +86,9 @@ export const App = (): JSX.Element => {
   const [background, setBackground] = useState<BackgroundStyle>(() =>
     parseBackground(readStorage(BACKGROUND_STORAGE_KEY))
   );
+  const [baseFishCount, setBaseFishCount] = useState<number>(() =>
+    parseBaseFish(readStorage(BASE_FISH_STORAGE_KEY))
+  );
   const { recentBranches, addRecentBranch, removeRecentBranch } = useRecentBranches();
 
   const branchName = useMemo(() => generateBranchName(form, settings), [form, settings]);
@@ -106,6 +111,10 @@ export const App = (): JSX.Element => {
   useEffect(() => {
     writeStorage(BACKGROUND_STORAGE_KEY, background);
   }, [background]);
+
+  useEffect(() => {
+    writeStorage(BASE_FISH_STORAGE_KEY, String(baseFishCount));
+  }, [baseFishCount]);
 
   // Auto-saves the current branch name to the recent list once the form has
   // sat idle for a while, so users get history without an explicit save step.
@@ -188,7 +197,11 @@ export const App = (): JSX.Element => {
     <>
       {background === 'koi' && (
         <Suspense fallback={null}>
-          <Koi3dBackground recentBranches={recentBranches} avoidRef={panelRef} />
+          <Koi3dBackground
+            recentBranches={recentBranches}
+            baseFishCount={baseFishCount}
+            avoidRef={panelRef}
+          />
         </Suspense>
       )}
       {background === 'particles' && (
@@ -245,6 +258,8 @@ export const App = (): JSX.Element => {
             branchTypes={settings.branchTypes}
             background={background}
             onBackgroundChange={setBackground}
+            baseFishCount={baseFishCount}
+            onBaseFishCountChange={setBaseFishCount}
             showAiLinks={settings.showAiLinks}
             onShowAiLinksChange={(showAiLinks) => handleSettingsChange({ showAiLinks })}
             onAddType={handleAddType}

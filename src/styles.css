@@ -201,6 +201,19 @@ body {
   margin: 0;
 }
 
+.settings-select {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.settings-select select {
+  width: auto;
+  padding: 0.35rem 1.75rem 0.35rem 0.6rem;
+}
+
 .settings-fieldset {
   display: grid;
   gap: 0.5rem;

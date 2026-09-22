@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { MAX_BRANCH_TYPE_LENGTH, sanitizeBranchType } from '../lib/branch-utils';
+import { MAX_BASE_FISH, MIN_BASE_FISH } from '../lib/koi';
 import { BACKGROUND_STYLES } from '../lib/storage';
 import type { BackgroundStyle } from '../types';
 
@@ -10,10 +11,19 @@ const BACKGROUND_LABELS: Readonly<Record<BackgroundStyle, string>> = {
   plain: 'Plain'
 };
 
+/** One option per fish count the pond can be floored at. */
+const BASE_FISH_OPTIONS: readonly number[] = Array.from(
+  { length: MAX_BASE_FISH - MIN_BASE_FISH + 1 },
+  (_unused, index) => MIN_BASE_FISH + index
+);
+
 type SettingsPanelProps = {
   branchTypes: string[];
   background: BackgroundStyle;
   onBackgroundChange: (background: BackgroundStyle) => void;
+  /** How many koi swim at minimum; more join as branches are saved, up to the pond's cap. */
+  baseFishCount: number;
+  onBaseFishCountChange: (count: number) => void;
   showAiLinks: boolean;
   onShowAiLinksChange: (show: boolean) => void;
   onAddType: (type: string) => void;
@@ -26,6 +36,8 @@ export const SettingsPanel = ({
   branchTypes,
   background,
   onBackgroundChange,
+  baseFishCount,
+  onBaseFishCountChange,
   showAiLinks,
   onShowAiLinksChange,
   onAddType,
@@ -177,8 +189,30 @@ export const SettingsPanel = ({
             </label>
           ))}
           <p className="settings-hint">
-            The koi pond swims one fish per recent branch, coloured by its branch type.
+            The koi pond swims one fish per recent branch, each in its own colour.
           </p>
+
+          {background === 'koi' && (
+            <>
+              <label className="settings-select">
+                Fish always in the pond
+                <select
+                  value={baseFishCount}
+                  onChange={(event) => onBaseFishCountChange(Number(event.target.value))}
+                >
+                  {BASE_FISH_OPTIONS.map((count) => (
+                    <option key={count} value={count}>
+                      {count}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="settings-hint">
+                The pond never drops below this many. Recent branches fill in past it, up to{' '}
+                {MAX_BASE_FISH} at once.
+              </p>
+            </>
+          )}
         </fieldset>
       </div>
     </div>

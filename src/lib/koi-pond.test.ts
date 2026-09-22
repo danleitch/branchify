@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_KOI, RESIDENT_KOI } from './koi';
+import { DEFAULT_BASE_FISH, MAX_KOI } from './koi';
 import { buildKoiRoster, hashString, paletteForBranch, residentPalette } from './koi-roster';
 import {
   MAX_LENGTH,
@@ -28,25 +28,25 @@ describe('buildKoiRoster', () => {
   it('keeps a couple of residents swimming when nothing has been saved', () => {
     const roster = buildKoiRoster([]);
 
-    expect(roster).toHaveLength(RESIDENT_KOI);
+    expect(roster).toHaveLength(DEFAULT_BASE_FISH);
     expect(roster.every((koi) => koi.label === null)).toBe(true);
   });
 
-  it('tops a single branch up to the resident minimum', () => {
+  it('tops a single branch up to the base fish count', () => {
     const roster = buildKoiRoster([branch('feat/one')]);
 
-    expect(roster).toHaveLength(RESIDENT_KOI);
+    expect(roster).toHaveLength(DEFAULT_BASE_FISH);
     expect(roster.filter((koi) => koi.label !== null)).toHaveLength(1);
   });
 
-  it('swims one koi per recent branch once past the minimum', () => {
+  it('swims one koi per recent branch once past the base count', () => {
     const roster = buildKoiRoster([branch('feat/a'), branch('fix/b'), branch('docs/c')]);
 
     expect(roster).toHaveLength(3);
     expect(roster.map((koi) => koi.label)).toEqual(['feat/a', 'fix/b', 'docs/c']);
   });
 
-  it('never exceeds the recent-branch cap', () => {
+  it('never exceeds the pond cap regardless of how many branches are recent', () => {
     const many = Array.from({ length: 12 }, (_unused, index) => branch(`feat/branch-${index}`));
 
     expect(buildKoiRoster(many)).toHaveLength(MAX_KOI);
@@ -59,22 +59,19 @@ describe('buildKoiRoster', () => {
     expect(first).toEqual(again);
   });
 
-  it('colours a koi by its branch type', () => {
-    const [feature] = buildKoiRoster([branch('feat/green', 'feat')]);
-    const [hotfix] = buildKoiRoster([branch('feat/green', 'hotfix')]);
+  it('colours every branch its own hue rather than one colour per type', () => {
+    // Most projects are mostly `feat` branches; a type-keyed palette meant
+    // almost every koi wore the same green. The colour now comes off the
+    // branch's own seed, so two branches of the same type still differ.
+    const [first] = buildKoiRoster([branch('feat/one', 'feat')]);
+    const [second] = buildKoiRoster([branch('feat/two', 'feat')]);
 
-    expect(feature!.palette.marking).not.toBe(hotfix!.palette.marking);
+    expect(first!.palette.marking).not.toBe(second!.palette.marking);
   });
 
-  it('reads the branch type off the name when no snapshot was saved', () => {
-    const [koi] = buildKoiRoster([branch('docs/BRF-1-write-it')]);
-
-    expect(koi!.palette.marking).toBe(paletteForBranch('docs', koi!.seed).marking);
-  });
-
-  it('gives a custom branch type its own hashed colour, as hex', () => {
-    const spike = paletteForBranch('spike', hashString('spike'));
-    const chore = paletteForBranch('chore', hashString('spike'));
+  it('gives every branch a distinct hashed colour, as hex', () => {
+    const spike = paletteForBranch(hashString('spike'));
+    const chore = paletteForBranch(hashString('chore'));
 
     // Hex, not hsl(): depth mixes every colour toward the water, which needs
     // channels it can actually read.
@@ -84,9 +81,35 @@ describe('buildKoiRoster', () => {
 
   it('dresses residents in natural tones rather than a branch colour', () => {
     const plain = residentPalette(hashString('resident-0'));
-    const branded = paletteForBranch('feat', hashString('resident-0'));
+    const branded = paletteForBranch(hashString('resident-0'));
 
     expect(plain.marking).not.toBe(branded.marking);
+  });
+
+  describe('base fish count', () => {
+    it('raises the floor when Settings asks for more residents', () => {
+      const roster = buildKoiRoster([branch('feat/one')], 5);
+
+      expect(roster).toHaveLength(5);
+      expect(roster.filter((koi) => koi.label !== null)).toHaveLength(1);
+    });
+
+    it('lets branches outgrow the floor rather than capping at it', () => {
+      const branches = Array.from({ length: 4 }, (_unused, index) => branch(`feat/${index}`));
+      const roster = buildKoiRoster(branches, 2);
+
+      expect(roster).toHaveLength(4);
+      expect(roster.every((koi) => koi.label !== null)).toBe(true);
+    });
+
+    it('clamps a floor above the pond cap rather than growing past it', () => {
+      expect(buildKoiRoster([], 999)).toHaveLength(MAX_KOI);
+    });
+
+    it('clamps a negative or fractional floor into range', () => {
+      expect(buildKoiRoster([], -3)).toHaveLength(0);
+      expect(buildKoiRoster([], 2.6)).toHaveLength(3);
+    });
   });
 });
 

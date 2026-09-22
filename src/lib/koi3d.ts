@@ -50,7 +50,7 @@ export type KoiEntry = {
   key: string;
   /** Drives every deterministic trait; the same branch is always the same fish. */
   seed: number;
-  /** The branch type's colour, worn as the dominant marking. */
+  /** The branch's own colour, worn as the dominant marking. */
   accent: string;
 };
 

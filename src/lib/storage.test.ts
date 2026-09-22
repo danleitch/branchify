@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_BASE_FISH, MAX_BASE_FISH, MIN_BASE_FISH } from './koi';
 import {
   DEFAULT_SETTINGS,
   EMPTY_FORM,
+  MAX_RECENT_BRANCHES,
+  parseBaseFish,
   parseForm,
   parseRecentBranches,
   parseSettings
@@ -47,11 +50,11 @@ describe('parseRecentBranches', () => {
   });
 
   it('caps the number of entries', () => {
-    const many = Array.from({ length: 12 }, (_, index) => ({
+    const many = Array.from({ length: MAX_RECENT_BRANCHES + 4 }, (_, index) => ({
       value: `feat/branch-${index}`,
       createdAt: new Date(2026, 0, index + 1).toISOString()
     }));
-    expect(parseRecentBranches(JSON.stringify(many))).toHaveLength(5);
+    expect(parseRecentBranches(JSON.stringify(many))).toHaveLength(MAX_RECENT_BRANCHES);
   });
 
   it('returns an empty array for non-array JSON', () => {
@@ -137,5 +140,24 @@ describe('parseSettings', () => {
 
   it('falls back to the default settings for malformed JSON', () => {
     expect(parseSettings('{ not json')).toEqual(DEFAULT_SETTINGS);
+  });
+});
+
+describe('parseBaseFish', () => {
+  it('defaults when nothing is stored', () => {
+    expect(parseBaseFish(null)).toBe(DEFAULT_BASE_FISH);
+  });
+
+  it('accepts any in-range integer', () => {
+    expect(parseBaseFish(String(MIN_BASE_FISH))).toBe(MIN_BASE_FISH);
+    expect(parseBaseFish(String(MAX_BASE_FISH))).toBe(MAX_BASE_FISH);
+    expect(parseBaseFish('5')).toBe(5);
+  });
+
+  it('falls back to the default for anything out of range or non-numeric', () => {
+    expect(parseBaseFish(String(MIN_BASE_FISH - 1))).toBe(DEFAULT_BASE_FISH);
+    expect(parseBaseFish(String(MAX_BASE_FISH + 1))).toBe(DEFAULT_BASE_FISH);
+    expect(parseBaseFish('3.5')).toBe(DEFAULT_BASE_FISH);
+    expect(parseBaseFish('a lot')).toBe(DEFAULT_BASE_FISH);
   });
 });

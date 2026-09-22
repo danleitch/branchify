@@ -7,6 +7,8 @@ import type { RecentBranch } from '../types';
 
 type KoiBackgroundProps = {
   recentBranches: readonly RecentBranch[];
+  /** The floor on how many koi swim; branches fill in before residents do, up to MAX_KOI. */
+  baseFishCount?: number;
   /** The panel, which the koi treat as an island so they stay in view around it. */
   avoidRef?: RefObject<HTMLElement>;
 };
@@ -22,11 +24,18 @@ const prefersReducedMotion = (): boolean =>
   typeof window.matchMedia === 'function' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const KoiBackgroundInner = ({ recentBranches, avoidRef }: KoiBackgroundProps): JSX.Element => {
+const KoiBackgroundInner = ({
+  recentBranches,
+  baseFishCount,
+  avoidRef
+}: KoiBackgroundProps): JSX.Element => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const swimmersRef = useRef<Swimmer[]>([]);
   const boundsRef = useRef<PondBounds>({ width: 0, height: 0 });
-  const roster = useMemo(() => buildKoiRoster(recentBranches), [recentBranches]);
+  const roster = useMemo(
+    () => buildKoiRoster(recentBranches, baseFishCount),
+    [recentBranches, baseFishCount]
+  );
   const avoidElementRef = useRef(avoidRef);
   avoidElementRef.current = avoidRef;
   const rosterRef = useRef(roster);
