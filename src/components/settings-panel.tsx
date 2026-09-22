@@ -1,9 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { MAX_BRANCH_TYPE_LENGTH, sanitizeBranchType } from '../lib/branch-utils';
+import { BACKGROUND_STYLES } from '../lib/storage';
+import type { BackgroundStyle } from '../types';
+
+const BACKGROUND_LABELS: Readonly<Record<BackgroundStyle, string>> = {
+  koi: 'Koi pond',
+  particles: 'Particles',
+  plain: 'Plain'
+};
 
 type SettingsPanelProps = {
   branchTypes: string[];
+  background: BackgroundStyle;
+  onBackgroundChange: (background: BackgroundStyle) => void;
   showAiLinks: boolean;
   onShowAiLinksChange: (show: boolean) => void;
   onAddType: (type: string) => void;
@@ -14,6 +24,8 @@ type SettingsPanelProps = {
 
 export const SettingsPanel = ({
   branchTypes,
+  background,
+  onBackgroundChange,
   showAiLinks,
   onShowAiLinksChange,
   onAddType,
@@ -149,6 +161,25 @@ export const SettingsPanel = ({
             Show AI shorten icons (ChatGPT &amp; Claude)
           </label>
         </section>
+
+        <fieldset className="settings-fieldset">
+          <legend>Background</legend>
+          {BACKGROUND_STYLES.map((style) => (
+            <label key={style} className="settings-toggle">
+              <input
+                type="radio"
+                name="background"
+                value={style}
+                checked={background === style}
+                onChange={() => onBackgroundChange(style)}
+              />
+              {BACKGROUND_LABELS[style]}
+            </label>
+          ))}
+          <p className="settings-hint">
+            The koi pond swims one fish per recent branch, coloured by its branch type.
+          </p>
+        </fieldset>
       </div>
     </div>
   );

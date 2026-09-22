@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { BranchForm } from './components/branch-form';
 import { BranchOutputs } from './components/branch-outputs';
 import { RecentBranches } from './components/recent-branches';
@@ -14,15 +14,39 @@ import {
   parseBranchName
 } from './lib/branch-utils';
 import {
+  BACKGROUND_STORAGE_KEY,
   EMPTY_FORM,
   FORM_STORAGE_KEY,
   SETTINGS_STORAGE_KEY,
+  parseBackground,
   parseForm,
   parseSettings,
   readStorage,
   writeStorage
 } from './lib/storage';
-import type { BranchSeparators, BranchSettings, PersistedForm, RecentBranch } from './types';
+import type {
+  BackgroundStyle,
+  BranchSeparators,
+  BranchSettings,
+  PersistedForm,
+  RecentBranch
+} from './types';
+
+// Only visitors who pick the particles background pay to download tsparticles;
+// the koi pond is the default and carries no library at all.
+// three.js and the vendored koi are the heaviest thing Branchify can draw, so
+// they arrive only for visitors who are actually looking at the pond.
+const Koi3dBackground = lazy(() =>
+  import('./components/koi3d-background').then((module) => ({
+    default: module.Koi3dBackground
+  }))
+);
+
+const ParticlesBackground = lazy(() =>
+  import('./components/particles-background').then((module) => ({
+    default: module.ParticlesBackground
+  }))
+);
 
 const AUTOSAVE_IDLE_MS = 5 * 60 * 1000;
 
@@ -56,6 +80,10 @@ export const App = (): JSX.Element => {
     parseSettings(readStorage(SETTINGS_STORAGE_KEY))
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const panelRef = useRef<HTMLElement>(null);
+  const [background, setBackground] = useState<BackgroundStyle>(() =>
+    parseBackground(readStorage(BACKGROUND_STORAGE_KEY))
+  );
   const { recentBranches, addRecentBranch, removeRecentBranch } = useRecentBranches();
 
   const branchName = useMemo(() => generateBranchName(form, settings), [form, settings]);
@@ -74,6 +102,10 @@ export const App = (): JSX.Element => {
   useEffect(() => {
     writeStorage(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
   }, [settings]);
+
+  useEffect(() => {
+    writeStorage(BACKGROUND_STORAGE_KEY, background);
+  }, [background]);
 
   // Auto-saves the current branch name to the recent list once the form has
   // sat idle for a while, so users get history without an explicit save step.
@@ -153,60 +185,75 @@ export const App = (): JSX.Element => {
   };
 
   return (
-    <main className="app-shell">
-      <section className="panel">
-        <header className="panel-header">
-          <div className="panel-header-top">
-            <h1>Branchify 🪾</h1>
-            <div className="header-actions">
-              <SettingsButton expanded={settingsOpen} onClick={() => setSettingsOpen(true)} />
-              <ResetButton onReset={handleReset} />
-            </div>
-          </div>
-          <p>Create consistent Git branch names in one quick step.</p>
-          <p>
-            <strong>'{namingPattern}'</strong> — the practical modern standard used across teams
-            leveraging Jira and Linear.
-          </p>
-        </header>
-
-        <BranchForm
-          form={form}
-          branchTypes={settings.branchTypes}
-          typeSeparator={settings.typeSeparator}
-          ticketSeparator={settings.ticketSeparator}
-          aiTargets={aiTargets}
-          showAiLinks={settings.showAiLinks}
-          onChange={handleChange}
-          onTypeSeparatorChange={handleTypeSeparatorChange}
-          onTicketSeparatorChange={handleTicketSeparatorChange}
-        />
-
-        <BranchOutputs
-          branchName={branchName}
-          gitCommand={gitCommand}
-          pullRequestTitle={pullRequestTitle}
-        />
-
-        <RecentBranches
-          branches={recentBranches}
-          canLoad={canLoadRecent}
-          onLoad={handleLoadRecent}
-          onRemove={removeRecentBranch}
-        />
-      </section>
-
-      {settingsOpen && (
-        <SettingsPanel
-          branchTypes={settings.branchTypes}
-          showAiLinks={settings.showAiLinks}
-          onShowAiLinksChange={(showAiLinks) => handleSettingsChange({ showAiLinks })}
-          onAddType={handleAddType}
-          onRemoveType={handleRemoveType}
-          onResetTypes={handleResetTypes}
-          onClose={() => setSettingsOpen(false)}
-        />
+    <>
+      {background === 'koi' && (
+        <Suspense fallback={null}>
+          <Koi3dBackground recentBranches={recentBranches} avoidRef={panelRef} />
+        </Suspense>
       )}
-    </main>
+      {background === 'particles' && (
+        <Suspense fallback={null}>
+          <ParticlesBackground />
+        </Suspense>
+      )}
+
+      <main className="app-shell">
+        <section className="panel" ref={panelRef}>
+          <header className="panel-header">
+            <div className="panel-header-top">
+              <h1>Branchify 🪾</h1>
+              <div className="header-actions">
+                <SettingsButton expanded={settingsOpen} onClick={() => setSettingsOpen(true)} />
+                <ResetButton onReset={handleReset} />
+              </div>
+            </div>
+            <p>Create consistent Git branch names in one quick step.</p>
+            <p>
+              <strong>'{namingPattern}'</strong> — the practical modern standard used across teams
+              leveraging Jira and Linear.
+            </p>
+          </header>
+
+          <BranchForm
+            form={form}
+            branchTypes={settings.branchTypes}
+            typeSeparator={settings.typeSeparator}
+            ticketSeparator={settings.ticketSeparator}
+            aiTargets={aiTargets}
+            showAiLinks={settings.showAiLinks}
+            onChange={handleChange}
+            onTypeSeparatorChange={handleTypeSeparatorChange}
+            onTicketSeparatorChange={handleTicketSeparatorChange}
+          />
+
+          <BranchOutputs
+            branchName={branchName}
+            gitCommand={gitCommand}
+            pullRequestTitle={pullRequestTitle}
+          />
+
+          <RecentBranches
+            branches={recentBranches}
+            canLoad={canLoadRecent}
+            onLoad={handleLoadRecent}
+            onRemove={removeRecentBranch}
+          />
+        </section>
+
+        {settingsOpen && (
+          <SettingsPanel
+            branchTypes={settings.branchTypes}
+            background={background}
+            onBackgroundChange={setBackground}
+            showAiLinks={settings.showAiLinks}
+            onShowAiLinksChange={(showAiLinks) => handleSettingsChange({ showAiLinks })}
+            onAddType={handleAddType}
+            onRemoveType={handleRemoveType}
+            onResetTypes={handleResetTypes}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
+      </main>
+    </>
   );
 };

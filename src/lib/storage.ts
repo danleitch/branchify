@@ -1,9 +1,17 @@
-import type { BranchSeparators, BranchSettings, PersistedForm, RecentBranch } from '../types';
+import type {
+  BackgroundStyle,
+  BranchSeparators,
+  BranchSettings,
+  PersistedForm,
+  RecentBranch
+} from '../types';
 import { DEFAULT_NAMING_SETTINGS, sanitizeBranchType } from './branch-utils';
 
 export const FORM_STORAGE_KEY = 'branchify-form';
 export const RECENT_STORAGE_KEY = 'branchify-recent';
 export const SETTINGS_STORAGE_KEY = 'branchify-settings';
+// Kept apart from the naming settings: the backdrop says nothing about branch names.
+export const BACKGROUND_STORAGE_KEY = 'branchify-background';
 export const MAX_RECENT_BRANCHES = 5;
 export const MAX_SEPARATOR_LENGTH = 3;
 
@@ -148,3 +156,13 @@ export const parseRecentBranches = (raw: string | null): RecentBranch[] => {
     return [];
   }
 };
+
+export const BACKGROUND_STYLES: readonly BackgroundStyle[] = ['koi', 'particles', 'plain'];
+
+export const DEFAULT_BACKGROUND: BackgroundStyle = 'koi';
+
+/** Falls back to the default for anything written by a future or broken version. */
+export const parseBackground = (raw: string | null): BackgroundStyle =>
+  BACKGROUND_STYLES.includes(raw as BackgroundStyle)
+    ? (raw as BackgroundStyle)
+    : DEFAULT_BACKGROUND;

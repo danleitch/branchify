@@ -16,11 +16,18 @@ body {
   color: #e5e7eb;
 }
 
-#tsparticles {
+#tsparticles,
+.koi-pond {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
+}
+
+/* The water canvas paints the pond; this is the colour behind a frame that has
+   not landed yet. The koi canvas over it stays transparent. */
+.koi-water {
+  background: #16302f;
 }
 
 .app-shell {
@@ -192,6 +199,28 @@ body {
 .settings-toggle input {
   width: auto;
   margin: 0;
+}
+
+.settings-fieldset {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.settings-fieldset legend {
+  padding: 0;
+  margin-bottom: 0.5rem;
+  font-size: 1.17rem;
+  font-weight: 700;
+}
+
+.settings-hint {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: #9ca3af;
 }
 
 .settings-error {

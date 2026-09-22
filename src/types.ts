@@ -22,3 +22,6 @@ export type BranchSettings = BranchSeparators & {
   /** Whether the "shorten with AI" icons appear beside the description field. */
   showAiLinks: boolean;
 };
+
+/** Which backdrop the app draws behind the panel. */
+export type BackgroundStyle = 'koi' | 'particles' | 'plain';

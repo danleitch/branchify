@@ -374,6 +374,50 @@ describe('App', () => {
     });
   });
 
+  describe('background setting', () => {
+    const openSettings = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
+      await user.click(screen.getByRole('button', { name: 'Settings' }));
+      return screen.getByRole('dialog', { name: 'Settings' });
+    };
+
+    it('swims the koi pond by default', () => {
+      const { container } = render(<App />);
+
+      expect(container.querySelector('canvas.koi-pond')).toBeInTheDocument();
+    });
+
+    it('switches to a plain background and drops the pond', async () => {
+      const user = userEvent.setup({ delay: null });
+      const { container } = render(<App />);
+
+      const dialog = await openSettings(user);
+      await user.click(within(dialog).getByRole('radio', { name: 'Plain' }));
+
+      expect(container.querySelector('canvas.koi-pond')).not.toBeInTheDocument();
+    });
+
+    it('remembers the chosen background across a remount', async () => {
+      const user = userEvent.setup({ delay: null });
+      const { unmount } = render(<App />);
+
+      const dialog = await openSettings(user);
+      await user.click(within(dialog).getByRole('radio', { name: 'Plain' }));
+      unmount();
+
+      const { container } = render(<App />);
+
+      expect(container.querySelector('canvas.koi-pond')).not.toBeInTheDocument();
+    });
+
+    it('falls back to the koi pond when the stored value is nonsense', () => {
+      window.localStorage.setItem('branchify-background', 'aquarium');
+
+      const { container } = render(<App />);
+
+      expect(container.querySelector('canvas.koi-pond')).toBeInTheDocument();
+    });
+  });
+
   it('restores persisted form values from localStorage', () => {
     window.localStorage.setItem(
       'branchify-form',
