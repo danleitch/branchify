@@ -3,6 +3,7 @@ import { MAX_KOI } from './koi';
 import {
   COINS_PER_BRANCH,
   DAILY_BRANCH_REWARDS,
+  RESTOCK_PRICE,
   WELCOME_COINS,
   buyListing,
   createAccount,
@@ -12,17 +13,21 @@ import {
   purchaseBlocker,
   refundFor,
   releaseKoi,
+  restockTank,
   rewardBranch,
   rewardsLeftToday,
+  tankToday,
   type KoiAccount
 } from './koi-account';
-import type { KoiListing } from './koi-market';
+import { koiTank, type KoiListing } from './koi-market';
 
 const DAY = '2026-09-23';
 const NOW = new Date(2026, 8, 23, 12);
 
 const listing = (slot: number, price = 80): KoiListing => ({
-  id: `${DAY}#${slot}`,
+  id: `${DAY}#0.${slot}.0`,
+  day: DAY,
+  slot,
   name: `Koi ${slot}`,
   genome: { variety: 'kohaku', modifiers: [], seed: 1000 + slot },
   price
@@ -86,7 +91,7 @@ describe('buying', () => {
     expect(outcome).toBe('bought');
     expect(account.coins).toBe(20);
     expect(account.owned).toEqual([
-      expect.objectContaining({ id: `${DAY}#1`, name: 'Koi 1', price: 80 })
+      expect.objectContaining({ id: `${DAY}#0.1.0`, name: 'Koi 1', price: 80 })
     ]);
     expect(account.owned[0]!.acquiredAt).toBe(NOW.toISOString());
   });
@@ -127,7 +132,7 @@ describe('releasing', () => {
 
   it('takes the koi out of the pond and refunds it', () => {
     const bought = buyListing(withCoins(100), listing(1, 80), NOW).account;
-    const { account, refund } = releaseKoi(bought, `${DAY}#1`);
+    const { account, refund } = releaseKoi(bought, `${DAY}#0.1.0`);
 
     expect(refund).toBe(40);
     expect(account.coins).toBe(60);
@@ -138,6 +143,49 @@ describe('releasing', () => {
     const account = withCoins(10);
 
     expect(releaseKoi(account, 'nope')).toEqual({ account, refund: 0 });
+  });
+
+  it('sends a released koi off for good, rather than back into the tank', () => {
+    const [first] = koiTank(DAY);
+    const bought = buyListing(withCoins(5000), first!, NOW).account;
+    const released = releaseKoi(bought, first!.id).account;
+    const { restocks, sold } = tankToday(released, DAY);
+
+    expect(sold).toEqual([first!.id]);
+    expect(koiTank(DAY, restocks, sold).map((listing) => listing.id)).not.toContain(first!.id);
+  });
+});
+
+describe('the tank', () => {
+  it('remembers what was bought from it, in order', () => {
+    const tank = koiTank(DAY);
+    let account = withCoins(5000);
+    account = buyListing(account, tank[4]!, NOW).account;
+    account = buyListing(account, koiTank(DAY, 0, tankToday(account, DAY).sold)[1]!, NOW).account;
+
+    expect(tankToday(account, DAY).sold).toEqual([tank[4]!.id, tank[1]!.id]);
+  });
+
+  it('starts every day fresh: yesterday’s restocks and sales don’t carry over', () => {
+    const yesterday = { ...withCoins(0), tank: { day: '2026-09-22', restocks: 3, sold: ['x'] } };
+
+    expect(tankToday(yesterday, DAY)).toEqual({ day: DAY, restocks: 0, sold: [] });
+  });
+
+  it('restocks for a price, clearing the day’s sales', () => {
+    const bought = buyListing(withCoins(500), listing(2), NOW).account;
+    const { account, outcome } = restockTank(bought, DAY);
+
+    expect(outcome).toBe('restocked');
+    expect(account.coins).toBe(500 - 80 - RESTOCK_PRICE);
+    expect(account.tank).toEqual({ day: DAY, restocks: 1, sold: [] });
+    expect(restockTank(account, DAY).account.tank.restocks).toBe(2);
+  });
+
+  it('won’t restock on credit', () => {
+    const account = withCoins(RESTOCK_PRICE - 5);
+
+    expect(restockTank(account, DAY)).toEqual({ account, outcome: 'short' });
   });
 });
 
@@ -160,8 +208,16 @@ describe('parseAccount', () => {
   it('round-trips an account through storage', () => {
     const bought = buyListing(withCoins(500), listing(1, 80), NOW).account;
     const rewarded = rewardBranch(bought, 'feat/x', DAY).account;
+    const restocked = restockTank(rewarded, DAY).account;
 
-    expect(parseAccount(JSON.stringify(rewarded))).toEqual(rewarded);
+    expect(parseAccount(JSON.stringify(restocked))).toEqual(restocked);
+  });
+
+  it('reads an account saved before the tank was remembered as a fresh tank', () => {
+    const account = parseAccount(JSON.stringify({ coins: 40, owned: [] }))!;
+
+    expect(account.tank).toEqual({ day: '', restocks: 0, sold: [] });
+    expect(tankToday(account, DAY)).toEqual({ day: DAY, restocks: 0, sold: [] });
   });
 
   it('returns null for nothing, garbage, or a balance that makes no sense', () => {

@@ -37,6 +37,55 @@ export const RARITY_LABELS: Readonly<Record<KoiRarity, string>> = {
 /** How a variety reads at a glance, used to keep every day's stock varied. */
 export type KoiFamily = 'solid' | 'patterned' | 'metallic' | 'scaleless';
 
+/** The families koi shows sort varieties into, which the guide follows. */
+export type KoiGroup = 'gosanke' | 'utsuri' | 'bekko' | 'asagi' | 'hikari' | 'kawarimono';
+
+export type KoiGroupInfo = { id: KoiGroup; name: string; kanji: string; blurb: string };
+
+/** In the order a show catalogue runs: the big three first, the unusual ones last. */
+export const KOI_GROUPS: readonly KoiGroupInfo[] = [
+  {
+    id: 'gosanke',
+    name: 'Gosanke',
+    kanji: '御三家',
+    blurb:
+      'The big three: Kohaku, Sanke and Showa, the varieties most shows are won with. The Tancho, a kohaku with nothing but its crown, is judged in a class of its own.'
+  },
+  {
+    id: 'utsuri',
+    name: 'Utsurimono',
+    kanji: '写り物',
+    blurb: 'The reflections: black koi with a single colour showing through, white, red or yellow.'
+  },
+  {
+    id: 'bekko',
+    name: 'Bekko',
+    kanji: '別甲',
+    blurb: 'The tortoiseshells: one ground colour with small sumi stepping stones down the back.'
+  },
+  {
+    id: 'asagi',
+    name: 'Asagi & Shusui',
+    kanji: '浅葱・秋翠',
+    blurb:
+      'The blue ones: the old netted Asagi, and the Shusui, its scaleless descendant, bred in 1910 by crossing Asagi with German mirror carp.'
+  },
+  {
+    id: 'hikari',
+    name: 'Hikarimono',
+    kanji: '光り物',
+    blurb:
+      'The shining ones: every metallic koi, from the single-coloured Ogon to the patterned Kujaku and Hariwake.'
+  },
+  {
+    id: 'kawarimono',
+    name: 'Kawarimono',
+    kanji: '変わり物',
+    blurb:
+      'The unusual ones: everything else, from the friendly Chagoi to the Kumonryu, whose swirls shift with the seasons.'
+  }
+];
+
 /** A colour, or the band an individual fish's colour is drawn from. */
 export type Tone = string | readonly [string, string];
 
@@ -102,9 +151,13 @@ export type KoiVariety = {
   id: KoiVarietyId;
   name: string;
   kanji: string;
+  /** What the name means in English, for the guide. */
+  meaning: string;
   blurb: string;
   rarity: KoiRarity;
   family: KoiFamily;
+  /** The show family it belongs to. */
+  group: KoiGroup;
   /** The ground the markings are written on. */
   base: Tone;
   /** The layer-0 marking colour; a solid fish simply has no layer-0 bands. */
@@ -270,10 +323,12 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'kohaku',
     name: 'Kohaku',
     kanji: '紅白',
+    meaning: 'red and white',
     blurb:
       'Crimson hi on snow-white skin. The variety every keeper starts with, and many never leave.',
     rarity: 'common',
     family: 'patterned',
+    group: 'gosanke',
     base: WHITE,
     primary: HI,
     markings: [KOHAKU_HI],
@@ -285,9 +340,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'benigoi',
     name: 'Benigoi',
     kanji: '紅鯉',
+    meaning: 'crimson carp',
     blurb: 'Red from nose to tail: one deep, unbroken beni with nothing to interrupt it.',
     rarity: 'common',
     family: 'solid',
+    group: 'kawarimono',
     base: ['#d23c21', '#b5291a'],
     belly: '#e9a58c',
     markings: [],
@@ -299,9 +356,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'orenji-ogon',
     name: 'Orenji Ogon',
     kanji: 'オレンジ黄金',
+    meaning: 'orange gold',
     blurb: 'Solid metallic orange that glows like a paper lantern under the water.',
     rarity: 'common',
     family: 'metallic',
+    group: 'hikari',
     base: ['#f59a33', '#ea731b'],
     belly: '#f6c894',
     markings: [],
@@ -314,9 +373,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'yamabuki-ogon',
     name: 'Yamabuki Ogon',
     kanji: '山吹黄金',
+    meaning: 'kerria-rose gold',
     blurb: 'Named for the yellow kerria rose: a single sheet of burnished gold.',
     rarity: 'common',
     family: 'metallic',
+    group: 'hikari',
     base: ['#f2c640', '#e2a92a'],
     markings: [],
     netting: 0.34,
@@ -328,10 +389,12 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'chagoi',
     name: 'Chagoi',
     kanji: '茶鯉',
+    meaning: 'tea carp',
     blurb:
       'Tea-brown and famously friendly: first to the surface at feeding time, and the biggest in the pond.',
     rarity: 'common',
     family: 'solid',
+    group: 'kawarimono',
     base: ['#93704a', '#77583a'],
     markings: [],
     netting: 0.75,
@@ -344,9 +407,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'soragoi',
     name: 'Soragoi',
     kanji: '空鯉',
+    meaning: 'sky carp',
     blurb: 'The soft grey-blue of an overcast sky, netted with darker scales.',
     rarity: 'common',
     family: 'solid',
+    group: 'kawarimono',
     base: ['#9aa8b0', '#81919b'],
     markings: [],
     netting: 0.7,
@@ -358,9 +423,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'shiro-bekko',
     name: 'Shiro Bekko',
     kanji: '白別甲',
+    meaning: 'white tortoiseshell',
     blurb: 'White, with small sumi stepping stones scattered down the back.',
     rarity: 'common',
     family: 'patterned',
+    group: 'bekko',
     base: WHITE,
     secondary: SUMI,
     markings: [BEKKO_SUMI],
@@ -372,10 +439,12 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'taisho-sanke',
     name: 'Taisho Sanke',
     kanji: '大正三色',
+    meaning: 'three colours of the Taisho era',
     blurb:
       'Three colours: a kohaku with small sumi above the lateral line, and never black on the head.',
     rarity: 'uncommon',
     family: 'patterned',
+    group: 'gosanke',
     base: WHITE,
     primary: HI,
     secondary: SUMI,
@@ -388,9 +457,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'showa',
     name: 'Showa Sanshoku',
     kanji: '昭和三色',
+    meaning: 'three colours of the Showa era',
     blurb: 'Black-based, with red and white: bold sumi wraps the body and splits the face.',
     rarity: 'uncommon',
     family: 'patterned',
+    group: 'gosanke',
     base: WHITE,
     primary: HI,
     secondary: SUMI,
@@ -404,10 +475,12 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'asagi',
     name: 'Asagi',
     kanji: '浅葱',
+    meaning: 'pale indigo',
     blurb:
       'One of the oldest varieties: a pale-blue netted back, with red rising up the cheeks and flanks.',
     rarity: 'uncommon',
     family: 'patterned',
+    group: 'asagi',
     base: ['#8ba4b6', '#7690a3'],
     primary: ['#e0602f', '#c9482a'],
     belly: '#ead3c3',
@@ -422,10 +495,12 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'kigoi',
     name: 'Kigoi',
     kanji: '黄鯉',
+    meaning: 'yellow carp',
     blurb:
       'Lemon yellow and non-metallic. Finding one this evenly coloured is rarer than it looks.',
     rarity: 'uncommon',
     family: 'solid',
+    group: 'kawarimono',
     base: ['#f5da57', '#eac83f'],
     markings: [],
     netting: 0.3,
@@ -436,9 +511,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'platinum-ogon',
     name: 'Platinum Ogon',
     kanji: 'プラチナ黄金',
+    meaning: 'platinum gold',
     blurb: 'Pure metallic white with a brilliant sheen, like moonlight lying on the water.',
     rarity: 'uncommon',
     family: 'metallic',
+    group: 'hikari',
     base: ['#f1f0eb', '#e2e1db'],
     markings: [],
     netting: 0.3,
@@ -450,9 +527,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'hi-utsuri',
     name: 'Hi Utsuri',
     kanji: '緋写り',
+    meaning: 'scarlet reflection',
     blurb: 'Fiery red over lacquer black, the sumi "reflected" across the whole body.',
     rarity: 'uncommon',
     family: 'patterned',
+    group: 'utsuri',
     base: ['#e25a2d', '#cc4223'],
     secondary: SUMI,
     belly: '#eec3a8',
@@ -466,9 +545,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'aka-matsuba',
     name: 'Aka Matsuba',
     kanji: '赤松葉',
+    meaning: 'red pine needles',
     blurb: 'Red, with a dark pine-cone net drawn over every single scale.',
     rarity: 'uncommon',
     family: 'solid',
+    group: 'kawarimono',
     base: ['#cc472b', '#b43621'],
     belly: '#e8a88f',
     markings: [],
@@ -481,9 +562,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'karasugoi',
     name: 'Karasugoi',
     kanji: '烏鯉',
+    meaning: 'crow carp',
     blurb: 'The crow koi: black from nose to tail, with a faint smoky net.',
     rarity: 'uncommon',
     family: 'solid',
+    group: 'kawarimono',
     base: ['#221f1d', '#2d2826'],
     belly: '#3d3632',
     markings: [],
@@ -495,10 +578,12 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'tancho',
     name: 'Tancho',
     kanji: '丹頂',
+    meaning: 'red crown',
     blurb:
       'A single round crimson crown on pure white. Named for the red-crowned crane, and prized as a living flag.',
     rarity: 'rare',
     family: 'patterned',
+    group: 'gosanke',
     base: WHITE,
     primary: ['#dc3a26', '#c4261d'],
     markings: [TANCHO_CROWN],
@@ -510,9 +595,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'shiro-utsuri',
     name: 'Shiro Utsuri',
     kanji: '白写り',
+    meaning: 'white reflection',
     blurb: 'Ink black and snow white, as stark as a brushstroke of calligraphy.',
     rarity: 'rare',
     family: 'patterned',
+    group: 'utsuri',
     base: WHITE,
     secondary: SUMI,
     fin: SUMI,
@@ -525,9 +612,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'ki-utsuri',
     name: 'Ki Utsuri',
     kanji: '黄写り',
+    meaning: 'yellow reflection',
     blurb: 'Lemon yellow broken by bold black. One of the rarest utsuri to find done well.',
     rarity: 'rare',
     family: 'patterned',
+    group: 'utsuri',
     base: ['#f1cf4b', '#e5bb36'],
     secondary: SUMI,
     fin: SUMI,
@@ -540,10 +629,12 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'shusui',
     name: 'Shusui',
     kanji: '秋翠',
+    meaning: 'autumn jade',
     blurb:
       'A scaleless asagi: one row of mirror scales down a sky-blue back, and autumn red along the sides.',
     rarity: 'rare',
     family: 'scaleless',
+    group: 'asagi',
     base: ['#9dbacd', '#86a4ba'],
     primary: ['#e06a32', '#cf522b'],
     secondary: '#2d4459',
@@ -561,9 +652,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'goshiki',
     name: 'Goshiki',
     kanji: '五色',
+    meaning: 'five colours',
     blurb: 'Five colours: a kohaku pattern laid over dark, deeply netted blue.',
     rarity: 'rare',
     family: 'patterned',
+    group: 'kawarimono',
     base: ['#5f6b76', '#4f5b66'],
     primary: HI,
     belly: '#bcbfbb',
@@ -577,9 +670,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'kujaku',
     name: 'Kujaku',
     kanji: '孔雀',
+    meaning: 'peacock',
     blurb: 'The peacock: metallic platinum netted in grey, splashed with orange.',
     rarity: 'rare',
     family: 'metallic',
+    group: 'hikari',
     base: '#e9e7e0',
     primary: ['#f08d33', '#e36b23'],
     markings: [{ ...DRIFTING_PATCHES, count: 4 }],
@@ -593,9 +688,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'hariwake',
     name: 'Hariwake',
     kanji: '張分',
+    meaning: 'split in two',
     blurb: 'Two metals at once: a platinum ground patched with bright gold.',
     rarity: 'rare',
     family: 'metallic',
+    group: 'hikari',
     base: '#ecebe5',
     primary: ['#f2b53f', '#e89a2b'],
     markings: [DRIFTING_PATCHES],
@@ -608,9 +705,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'ochiba',
     name: 'Ochiba Shigure',
     kanji: '落葉時雨',
+    meaning: 'fallen leaves in an autumn shower',
     blurb: '"Autumn leaves falling on water": russet patches drifting over grey-blue.',
     rarity: 'rare',
     family: 'patterned',
+    group: 'kawarimono',
     base: ['#9ba8ae', '#8796a0'],
     primary: ['#aa6d3f', '#935830'],
     markings: [DRIFTING_PATCHES],
@@ -623,10 +722,12 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'kumonryu',
     name: 'Kumonryu',
     kanji: '九紋竜',
+    meaning: 'nine-tattooed dragon',
     blurb:
       'The nine-tattooed dragon: scaleless black and white in swirls that shift with the seasons.',
     rarity: 'legendary',
     family: 'scaleless',
+    group: 'kawarimono',
     base: WHITE,
     secondary: SUMI,
     fin: SUMI,
@@ -642,9 +743,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'beni-kumonryu',
     name: 'Beni Kumonryu',
     kanji: '紅九紋竜',
+    meaning: 'crimson nine-tattooed dragon',
     blurb: 'A kumonryu that caught fire: dragon swirls in black, white and red.',
     rarity: 'legendary',
     family: 'scaleless',
+    group: 'kawarimono',
     base: WHITE,
     primary: HI,
     secondary: SUMI,
@@ -664,9 +767,11 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'kin-kikokuryu',
     name: 'Kin Kikokuryu',
     kanji: '金輝黒竜',
+    meaning: 'gold-crowned shining black dragon',
     blurb: 'A metallic dragon: platinum and black swirls beneath a crown of gold.',
     rarity: 'legendary',
     family: 'metallic',
+    group: 'hikari',
     base: '#ebe9e2',
     primary: ['#f2a93c', '#e98c2a'],
     secondary: SUMI,
@@ -694,10 +799,12 @@ export const VARIETIES: readonly KoiVariety[] = [
     id: 'midorigoi',
     name: 'Midorigoi',
     kanji: '緑鯉',
+    meaning: 'green carp',
     blurb:
       'The green koi, so rare most keepers never see one: lustrous yellow-green, with one row of scales down the back.',
     rarity: 'legendary',
     family: 'scaleless',
+    group: 'kawarimono',
     base: ['#abc058', '#95ab45'],
     secondary: '#56672c',
     markings: [MIRROR_ROW],

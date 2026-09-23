@@ -319,6 +319,7 @@ export const App = (): JSX.Element => {
               day={marketDay}
               onBuy={market.buy}
               onRelease={market.release}
+              onRestock={() => market.restock(marketDay)}
               onDismissWelcome={market.dismissMarketWelcome}
               onClose={() => setMarketOpen(false)}
             />

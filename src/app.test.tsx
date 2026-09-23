@@ -603,6 +603,31 @@ describe('App', () => {
       expect(within(reopened).getByRole('tab', { name: /Your pond/ })).toHaveTextContent('1/10');
     });
 
+    it('restocks the tank for 100 coins, and remembers it', async () => {
+      window.localStorage.setItem(
+        'branchify-koi-market',
+        JSON.stringify({ coins: 250, rewarded: [], owned: [] })
+      );
+      const user = userEvent.setup({ delay: null });
+      const { unmount } = render(<App />);
+
+      const dialog = await openMarket(user);
+      await user.click(within(dialog).getByRole('button', { name: /Restock now/ }));
+      await user.click(within(dialog).getByRole('button', { name: 'Restock for 100' }));
+
+      expect(within(dialog).getByText('Restocked once today')).toBeInTheDocument();
+      expect(marketButton()).toHaveAccessibleName(/150 coins/);
+      await waitFor(() =>
+        expect(dialog.querySelector('.koi-photo[data-state="loading"]')).toBeNull()
+      );
+      unmount();
+
+      render(<App />);
+      const reopened = await openMarket(user);
+
+      expect(within(reopened).getByText('Restocked once today')).toBeInTheDocument();
+    });
+
     it('opens the market from Settings', async () => {
       const user = userEvent.setup({ delay: null });
       render(<App />);

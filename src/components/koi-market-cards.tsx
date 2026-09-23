@@ -1,4 +1,5 @@
-import { useState, type FocusEvent } from 'react';
+import { useState } from 'react';
+import { useAwake } from '../hooks/use-awake';
 import { refundFor, type OwnedKoi, type PurchaseOutcome } from '../lib/koi-account';
 import { MAX_KOI } from '../lib/koi';
 import { koiLengthCm, koiRarity, koiTitle, varietyOf, type KoiGenome } from '../lib/koi-genome';
@@ -8,33 +9,6 @@ import { CoinAmount, CoinIcon } from './coin-icon';
 import { KoiPortraitImage } from './koi-portrait-image';
 
 type Blocker = Exclude<PurchaseOutcome, 'bought'> | null;
-
-/** Pointing at a card, or tabbing into it, wakes its koi. */
-const useAwake = (): {
-  awake: boolean;
-  wakers: {
-    onPointerEnter: () => void;
-    onPointerLeave: () => void;
-    onFocus: () => void;
-    onBlur: (event: FocusEvent<HTMLElement>) => void;
-  };
-} => {
-  const [awake, setAwake] = useState(false);
-
-  return {
-    awake,
-    wakers: {
-      onPointerEnter: () => setAwake(true),
-      onPointerLeave: () => setAwake(false),
-      onFocus: () => setAwake(true),
-      onBlur: (event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          setAwake(false);
-        }
-      }
-    }
-  };
-};
 
 const TraitChips = ({ genome }: { genome: KoiGenome }): JSX.Element | null =>
   genome.modifiers.length === 0 ? null : (
@@ -64,8 +38,8 @@ type ListingCardProps = {
   listing: KoiListing;
   blocker: Blocker;
   coins: number;
-  /** Just bought in this visit, which earns the card a moment of celebration. */
-  celebrating: boolean;
+  /** Just arrived in the tank, in place of a sold fish or with a restock. */
+  fresh: boolean;
   onBuy: (listing: KoiListing) => void;
 };
 
@@ -73,7 +47,7 @@ export const ListingCard = ({
   listing,
   blocker,
   coins,
-  celebrating,
+  fresh,
   onBuy
 }: ListingCardProps): JSX.Element => {
   const { genome } = listing;
@@ -88,14 +62,17 @@ export const ListingCard = ({
     <article
       className="koi-card"
       data-rarity={rarity}
-      data-celebrating={celebrating || undefined}
+      data-fresh={fresh || undefined}
       aria-labelledby={headingId}
       {...wakers}
     >
       <div className="koi-card-photo">
         <KoiPortraitImage genome={genome} alt={describeListing(listing)} active={awake} />
-        <span className="rarity-badge" data-rarity={rarity}>
-          {RARITY_LABELS[rarity]}
+        <span className="koi-card-badges">
+          <span className="rarity-badge" data-rarity={rarity}>
+            {RARITY_LABELS[rarity]}
+          </span>
+          {fresh && <span className="new-badge">Just in</span>}
         </span>
         <span className="koi-size">{koiLengthCm(genome)} cm</span>
       </div>
@@ -186,7 +163,8 @@ export const OwnedKoiRow = ({ koi, now, onRelease }: OwnedKoiRowProps): JSX.Elem
       {confirming ? (
         <div className="release-confirm" role="group" aria-label={`Release ${koi.name}?`}>
           <p>
-            Release {koi.name}? You get <CoinAmount coins={refund} /> back.
+            Release {koi.name} for good? You get <CoinAmount coins={refund} /> back, but {koi.name}{' '}
+            won&apos;t return to the market.
           </p>
           <div className="release-actions">
             <button type="button" className="btn btn-danger" onClick={() => onRelease(koi)}>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_PATCHES } from '../vendor/koi-pond/koi3d/pattern';
 import {
+  KOI_GROUPS,
   MODIFIERS,
   MODIFIER_INFO,
   RARITIES,
@@ -78,6 +79,30 @@ describe('the variety catalogue', () => {
 
     expect(orange?.markings).toHaveLength(0);
     expect(red?.markings).toHaveLength(0);
+  });
+
+  it('says what every name means, and which show family it belongs to', () => {
+    const groups = new Set(KOI_GROUPS.map((group) => group.id));
+
+    for (const variety of VARIETIES) {
+      expect(variety.meaning.length, variety.id).toBeGreaterThan(2);
+      expect(groups.has(variety.group), variety.id).toBe(true);
+    }
+
+    for (const group of KOI_GROUPS) {
+      expect(
+        VARIETIES.some((variety) => variety.group === group.id),
+        group.id
+      ).toBe(true);
+    }
+  });
+
+  it('files the big three together', () => {
+    const gosanke = VARIETIES.filter((variety) => variety.group === 'gosanke').map(
+      (variety) => variety.id
+    );
+
+    expect(gosanke).toEqual(expect.arrayContaining(['kohaku', 'taisho-sanke', 'showa']));
   });
 
   it('finds varieties by id and shrugs at unknown ones', () => {

@@ -31,8 +31,28 @@ export const WELCOME_COINS = 100;
 /** How much of a koi's price the market pays back when it is released. */
 export const REFUND_SHARE = 0.5;
 
+/** What swapping today's tank for a fresh six costs. */
+export const RESTOCK_PRICE = 100;
+
 /** How many paid-out branch names are remembered; older ones may pay again, which is harmless. */
 const MAX_REWARD_LEDGER = 300;
+
+/** How many of a day's sales are remembered; far more than a day of buying ever makes. */
+const MAX_SOLD = 200;
+
+/**
+ * Today's tank as this visitor has changed it.
+ *
+ * Only the changes are kept, never the fish: the market rebuilds the tank from
+ * the day, the restocks and the sales, the same way every time.
+ */
+export type KoiTankState = {
+  day: string;
+  /** How many times the visitor has paid to restock it today. */
+  restocks: number;
+  /** Listings bought from the current tank, oldest first; each has been replaced. */
+  sold: string[];
+};
 
 /** A koi the visitor has bought. */
 export type OwnedKoi = {
@@ -58,7 +78,12 @@ export type KoiAccount = {
   seenDay: string | null;
   /** How the account was opened, shown once and then dismissed. */
   welcome: { coins: number; branches: number } | null;
+  tank: KoiTankState;
 };
+
+/** The visitor's tank for a day; yesterday's restocks and sales don't carry over. */
+export const tankToday = (account: KoiAccount, day: string): KoiTankState =>
+  account.tank.day === day ? account.tank : { day, restocks: 0, sold: [] };
 
 const branchKey = (branch: string): string => hashString(branch).toString(36);
 
@@ -82,7 +107,8 @@ export const createAccount = (recentBranches: readonly string[], day: string): K
     welcome: {
       coins: WELCOME_COINS + branches.length * COINS_PER_BRANCH,
       branches: branches.length
-    }
+    },
+    tank: { day, restocks: 0, sold: [] }
   };
 };
 
@@ -156,10 +182,15 @@ export const buyListing = (
     return { account, outcome: blocker };
   }
 
+  const tank = tankToday(account, listing.day);
+
   return {
     account: {
       ...account,
       coins: account.coins - listing.price,
+      // Sold for good: a new fish takes its place, and releasing it later
+      // sends it off rather than back into the tank.
+      tank: { ...tank, sold: [...tank.sold, listing.id].slice(-MAX_SOLD) },
       owned: [
         ...account.owned,
         {
@@ -174,6 +205,29 @@ export const buyListing = (
       welcome: null
     },
     outcome: 'bought'
+  };
+};
+
+export type RestockOutcome = 'restocked' | 'short';
+
+/** Swaps today's tank for a fresh six, for a price. */
+export const restockTank = (
+  account: KoiAccount,
+  day: string
+): { account: KoiAccount; outcome: RestockOutcome } => {
+  if (account.coins < RESTOCK_PRICE) {
+    return { account, outcome: 'short' };
+  }
+
+  const tank = tankToday(account, day);
+
+  return {
+    account: {
+      ...account,
+      coins: account.coins - RESTOCK_PRICE,
+      tank: { day, restocks: tank.restocks + 1, sold: [] }
+    },
+    outcome: 'restocked'
   };
 };
 
@@ -265,6 +319,19 @@ const parseOwned = (value: unknown): OwnedKoi | null => {
  * Anything unreadable is dropped rather than failing the whole account, so a
  * damaged save still opens with whatever of it survived.
  */
+/** A tank state that can't be read is simply a fresh tank: nothing restocked, nothing sold. */
+const parseTank = (value: unknown): KoiTankState =>
+  isRecord(value) &&
+  typeof value.day === 'string' &&
+  isCount(value.restocks) &&
+  Array.isArray(value.sold)
+    ? {
+        day: value.day,
+        restocks: value.restocks,
+        sold: value.sold.filter((id): id is string => typeof id === 'string').slice(-MAX_SOLD)
+      }
+    : { day: '', restocks: 0, sold: [] };
+
 export const parseAccount = (raw: string | null): KoiAccount | null => {
   if (!raw) {
     return null;
@@ -296,7 +363,8 @@ export const parseAccount = (raw: string | null): KoiAccount | null => {
       earnedToday: isCount(parsed.earnedToday) ? parsed.earnedToday : 0,
       owned,
       seenDay: typeof parsed.seenDay === 'string' ? parsed.seenDay : null,
-      welcome
+      welcome,
+      tank: parseTank(parsed.tank)
     };
   } catch {
     return null;

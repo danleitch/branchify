@@ -7,9 +7,11 @@ import {
   markSeen,
   parseAccount,
   releaseKoi,
+  restockTank,
   rewardBranch,
   type KoiAccount,
-  type PurchaseOutcome
+  type PurchaseOutcome,
+  type RestockOutcome
 } from '../lib/koi-account';
 import { marketDay, msUntilRestock } from '../lib/koi-market-clock';
 import type { KoiListing } from '../lib/koi-market';
@@ -27,6 +29,8 @@ export type UseKoiAccount = {
   buy: (listing: KoiListing) => PurchaseOutcome;
   /** Releases a koi and returns what the market paid back for it. */
   release: (id: string) => number;
+  /** Pays to swap the day's tank for a fresh six. */
+  restock: (day: string) => RestockOutcome;
   markMarketSeen: (day: string) => void;
   dismissMarketWelcome: () => void;
 };
@@ -111,6 +115,19 @@ export const useKoiAccount = (recentBranches: readonly RecentBranch[]): UseKoiAc
     [commit]
   );
 
+  const restock = useCallback(
+    (day: string): RestockOutcome => {
+      const result = restockTank(accountRef.current, day);
+
+      if (result.outcome === 'restocked') {
+        commit(result.account);
+      }
+
+      return result.outcome;
+    },
+    [commit]
+  );
+
   const markMarketSeen = useCallback(
     (day: string): void => commit(markSeen(accountRef.current, day)),
     [commit]
@@ -127,6 +144,7 @@ export const useKoiAccount = (recentBranches: readonly RecentBranch[]): UseKoiAc
     rewardForBranch,
     buy,
     release,
+    restock,
     markMarketSeen,
     dismissMarketWelcome
   };
