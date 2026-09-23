@@ -83,6 +83,23 @@ isn't available). Out of the box, each recent branch swims as its own koi, and
 a few resident koi keep the pond occupied. You set how many residents there are
 under **Settings → Fish always in the pond**.
 
+### Say hello
+
+The pond has stones on its bed and water lilies on its surface, and the koi
+swim over one and under the other.
+
+- **Click the water** and a ring spreads from your fingertip. The koi notice,
+  each in its own time (the bold ones first, the shyest not at all), and cruise
+  over to investigate. When they arrive they rise to the surface and gulp at it,
+  milling about for a while before sinking back to their own depth.
+- **Right-click the water** to scatter a handful of pellets. They float and
+  drift for about thirty seconds before sinking. Hungry koi come for the nearest
+  one, rise, and take it with a splash. Chagoi are first to the food, as they
+  are in real ponds.
+
+Clicks on the panel or any dialog are left alone, and the context menu is only
+replaced over open water. With reduced motion on, the pond stays still.
+
 ### Real varieties
 
 The market sells real nishikigoi varieties, from plain self-coloured fish to
@@ -107,15 +124,23 @@ With the koi pond selected, a koi button appears in the header next to the
 GitHub icon:
 
 - **Daily stock.** The market lists six koi a day, seeded by the date, so
-  everyone sees the same fish on the same day. It restocks at local midnight.
-  Every day includes at least one self-coloured koi and one patterned one.
+  everyone starts the day with the same fish. It restocks at local midnight.
+  Every tank includes at least one self-coloured koi and one patterned one.
+- **Buy one, another arrives.** A bought koi is replaced where it swam, so the
+  tank always holds six. Can't wait for midnight? **Restock** swaps all six for
+  a fresh tank for 100 coins.
 - **Coins come from branching.** The first time a new branch name is copied
   or saved to your recent list, it earns 25 coins, up to 8 branches a day. New
   visitors start with 100 coins, plus 25 for each branch already in their
   recent list.
 - **Your pond.** Once you own a market koi, market koi fill the whole pond and
   the branch koi and residents rest. The pond holds up to 10 koi. Releasing a
-  koi pays back half its price. Release them all and the branch koi return.
+  koi pays back half its price, and it's gone for good: it never returns to the
+  market. Release them all and the branch koi return.
+- **How it works, and the koi guide.** A panel at the top of the market
+  explains the rules. The book icon opens a short guide to koi: where they come
+  from, how their names work, every variety grouped by show family, the traits,
+  and where the market takes liberties.
 - **Portraits.** The fish are photographed with the same renderer as the pond,
   and the koi under your pointer comes to life and swims in place.
 
@@ -146,6 +171,7 @@ src/
     koi3d-background.tsx      # The 3D koi pond (falls back to koi-background.tsx)
     koi-market.tsx            # The market dialog: today's koi and your pond
     koi-market-button.tsx     # Header button, new-stock dot and coin pop
+    koi-guide.tsx             # The koi guide: history, names, varieties, traits
   hooks/
     use-recent-branches.ts    # Recent-branch state + persistence
     use-koi-account.ts        # Coins, owned koi, and the market day
@@ -158,6 +184,9 @@ src/
     koi-account.ts            # Earning, buying and releasing, as pure functions
     koi-portrait.ts           # Photographs koi for the market's cards
     koi3d.ts                  # The pond stage: arrivals, departures, the panel
+    koi-attention.ts          # How koi notice a touch on the water, and food
+    pond-decor.ts             # Stones on the bed, lilies on the surface
+    pond-surface.ts           # Ripples and floating pellets
   vendor/koi-pond/            # The hyperfrontend koi, untouched (see its README)
 ```
 

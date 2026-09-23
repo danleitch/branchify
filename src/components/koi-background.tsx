@@ -1,9 +1,16 @@
 import { memo, useEffect, useMemo, useRef, type RefObject } from 'react';
 import { drawKoi } from '../lib/koi-draw';
-import { reconcilePond, stepSwimmer, type PondBounds, type Swimmer } from '../lib/koi-pond';
+import {
+  nominalLength,
+  reconcilePond,
+  stepSwimmer,
+  type PondBounds,
+  type Swimmer
+} from '../lib/koi-pond';
 import type { OwnedKoi } from '../lib/koi-account';
 import { buildKoiRoster } from '../lib/koi-roster';
 import { createWater } from '../lib/koi-water';
+import { createPondScenery } from '../lib/pond-scenery';
 import type { RecentBranch } from '../types';
 
 type KoiBackgroundProps = {
@@ -55,6 +62,8 @@ const KoiBackgroundInner = ({
     }
 
     const water = createWater();
+    // The same stones and lilies as the 3D pond, so the fallback is the same pond.
+    const scenery = createPondScenery();
 
     const resize = (): void => {
       const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
@@ -68,6 +77,8 @@ const KoiBackgroundInner = ({
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       boundsRef.current = { ...boundsRef.current, width, height };
       water.resize(width, height);
+      scenery.layout(width, height, ratio, nominalLength(boundsRef.current));
+      water.setBed(scenery.bed);
     };
 
     const measureIsland = (): void => {
@@ -99,6 +110,9 @@ const KoiBackgroundInner = ({
           depth: swimmer.depth
         });
       }
+
+      // The lilies float over everything, fish included.
+      scenery.drawSurface(context, elapsedS);
     };
 
     resize();

@@ -41,7 +41,7 @@ export const KoiMarketExplainer = ({
           <strong>Welcome to the market.</strong> You start with{' '}
           <CoinAmount coins={welcome.coins} />
           {welcome.branches > 0
-            ? `: ${WELCOME_COINS} to start, plus ${COINS_PER_BRANCH} for each of your ${welcome.branches} recent branches.`
+            ? `: ${WELCOME_COINS} to start, plus ${COINS_PER_BRANCH} ${welcome.branches === 1 ? 'for your recent branch' : `for each of your ${welcome.branches} recent branches`}.`
             : '.'}
         </p>
       )}
@@ -66,6 +66,10 @@ export const KoiMarketExplainer = ({
           <strong>Your pond.</strong> Once you own a market koi, market koi replace all your branch
           and base koi. New fish swim in from the edge and leavers swim off. Release them all and
           the branch koi come back. The pond holds {MAX_KOI}.
+        </li>
+        <li>
+          <strong>Say hello.</strong> Click the water and your koi come over to see what&apos;s
+          going on, rising to gulp at the surface. Right-click to scatter a few pellets for them.
         </li>
         <li>
           <strong>Coins come from branching:</strong> <CoinAmount coins={COINS_PER_BRANCH} /> the

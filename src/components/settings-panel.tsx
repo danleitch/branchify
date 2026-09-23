@@ -207,7 +207,7 @@ export const SettingsPanel = ({
           ))}
           <p className="settings-hint">
             The koi pond swims one fish per recent branch, each in its own colour, or the koi you
-            buy at the market.
+            buy at the market. Click the water and they come to look; right-click to feed them.
           </p>
 
           {background === 'koi' && (

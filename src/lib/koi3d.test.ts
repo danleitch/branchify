@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ARRIVED_REACH, CURIOUS_GAIN, distance, insidePond } from './koi-attention';
 import {
   createKoiBrain,
   exitHeading,
@@ -6,6 +7,7 @@ import {
   pondFor,
   profileFor,
   type KoiEntry,
+  type KoiFocus,
   type PondIsland
 } from './koi3d';
 import { hashString } from './koi-roster';
@@ -199,5 +201,48 @@ describe('arrivals and departures', () => {
     expect(hasLeftPond({ x: -10, y: 400 }, 100, POND)).toBe(false);
     expect(hasLeftPond({ x: -130, y: 400 }, 100, POND)).toBe(true);
     expect(hasLeftPond({ x: 500, y: POND.height + 130 }, 100, POND)).toBe(true);
+  });
+});
+
+describe('curiosity', () => {
+  /** Swims a koi with a point of interest behind it, reporting how close it got and how fast it went. */
+  const investigate = (branch: string): { closest: number; fastest: number } => {
+    let focus: KoiFocus | null = null;
+    const { motion } = createKoiBrain(entry(branch), POND, () => null, {
+      readFocus: () => focus
+    });
+
+    for (let frame = 0; frame < 120; frame += 1) {
+      motion.advance(1 / 60);
+    }
+
+    const { position, heading } = motion.state;
+    const point = insidePond(
+      { x: position.x - Math.cos(heading) * 420, y: position.y - Math.sin(heading) * 420 },
+      POND,
+      POND.fishLength
+    );
+    focus = { point, gain: CURIOUS_GAIN };
+    let closest = Infinity;
+    let fastest = 0;
+
+    for (let frame = 0; frame < 20 * 60; frame += 1) {
+      motion.advance(1 / 60);
+      closest = Math.min(closest, distance(motion.state.position, point));
+      fastest = Math.max(fastest, motion.state.speed);
+    }
+
+    return { closest, fastest };
+  };
+
+  it('turns around and swims over to see a touch on the water behind it', () => {
+    for (const branch of ['feat/look', 'fix/peek', 'chore/nose']) {
+      expect(investigate(branch).closest, branch).toBeLessThan(ARRIVED_REACH * POND.fishLength);
+    }
+  });
+
+  it('comes over at its own easy pace, never at a dash', () => {
+    // A bolting koi reaches nearly two body lengths a second; a curious one cruises.
+    expect(investigate('feat/calm').fastest).toBeLessThan(1.2 * POND.fishLength);
   });
 });

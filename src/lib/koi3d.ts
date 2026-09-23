@@ -22,11 +22,12 @@ import { wrapAngle } from '../vendor/koi-pond/geometry/steering';
 import { swimDepth } from '../vendor/koi-pond/model/depth';
 import { POND_VIEW, pxPerUnit } from '../vendor/koi-pond/model/pond-view';
 import { koiProfile } from '../vendor/koi-pond/model/traits';
-import { DEPTH_LEVELS } from '../vendor/koi-pond/model/types';
+import { DEPTH_LEVELS, SURFACE_DEPTH } from '../vendor/koi-pond/model/types';
 import type {
   KoiFramework,
   KoiPalette,
   KoiProfile,
+  KoiTraits,
   PondEnvironment
 } from '../vendor/koi-pond/model/types';
 import { createKoiMotion } from '../vendor/koi-pond/motion/koi-motion';
@@ -40,6 +41,24 @@ import {
 } from '../vendor/koi-pond/three/pond-view';
 import type { PondView } from '../vendor/koi-pond/three/pond-view';
 import { createLighting } from '../vendor/koi-pond/three/scene';
+import {
+  ARRIVED_REACH,
+  BITE_REACH,
+  CURIOUS_GAIN,
+  CURIOUS_S,
+  GULP_EVERY_S,
+  HUNGRY_GAIN,
+  LINGER_S,
+  MILLING_GAIN,
+  SURFACING_REACH,
+  distance,
+  headingTo,
+  insidePond,
+  nearestTo,
+  noticeDelay,
+  tooShyToLook,
+  type PondPoint
+} from './koi-attention';
 import { createGenomeKoi } from './koi-body';
 import { koiBuildFor, type KoiGenome } from './koi-genome';
 
@@ -70,6 +89,8 @@ export type PondStage = {
    * leavers swim out of it, rather than popping in and out of existence.
    */
   setRoster: (entries: readonly KoiEntry[]) => void;
+  /** Something touched the water here; the koi come over to see, each in its own time. */
+  attend: (point: PondPoint) => void;
   dispose: () => void;
 };
 
@@ -155,6 +176,32 @@ export const profileFor = (entry: KoiEntry): KoiProfile => {
   };
 };
 
+/** What a koi is steering for, and how firmly. */
+export type KoiFocus = { point: PondPoint; gain: number };
+
+/** A touch on the water a koi has decided to go and look at. */
+type Curiosity = {
+  point: PondPoint;
+  /** When it notices, and turns toward the ripple. */
+  fromS: number;
+  /** When it loses interest: a while after arriving, or when it gives up getting there. */
+  untilS: number;
+  arrived: boolean;
+};
+
+/** A pellet as the koi see it: somewhere to go, and something to take. */
+export type FoodPellet = PondPoint & { id: number };
+
+/** What the pond tells the page about, and asks it for. */
+export type PondHooks = {
+  /** A koi broke the surface: gulping air, or taking a pellet. */
+  onRipple?: (x: number, y: number, strength: number) => void;
+  /** The pellets floating on the surface right now. */
+  readFood?: () => readonly FoodPellet[];
+  /** A koi has eaten a pellet. */
+  onEat?: (id: number) => void;
+};
+
 /** One koi in the pond: its body, its brain, and what it was doing last frame. */
 type Swimmer = {
   entry: KoiEntry;
@@ -165,7 +212,30 @@ type Swimmer = {
   lastSpeed: number;
   /** Where a koi that has left the roster is swimming off to; null while it belongs here. */
   exit: KoiExit;
+  traits: KoiTraits;
+  /** Known for being first to food, as a chagoi is. */
+  eager: boolean;
+  /** The depth level it keeps when nothing is going on. */
+  home: number;
+  /** The depth level it is drawn at, easing toward where it wants to be. */
+  level: number;
+  curiosity: Curiosity | null;
+  /** When it notices there is food; null while there is none. */
+  hungryFromS: number | null;
+  /** The pellet it is after, if any. */
+  meal: number | null;
+  /** What it is steering for this frame, which its brain reads. */
+  focus: KoiFocus | null;
+  /** Whether it is up at the surface for a look, rather than for food. */
+  looking: boolean;
+  /** Whether what it wants is up at the surface. */
+  rising: boolean;
+  /** When it will next gulp at the surface. */
+  gulpAtS: number;
 };
+
+/** How quickly a koi rises to the surface or sinks back, in seconds to close most of the way. */
+const DEPTH_EASE_S = 0.9;
 
 /** A departing koi's way out: the heading to hold, and how long it has to get there. */
 type KoiExit = { heading: number; secondsLeft: number } | null;
@@ -256,12 +326,15 @@ export const createKoiBrain = (
   readIsland: () => PondIsland | null,
   {
     arriving = false,
-    readExit = () => null
+    readExit = () => null,
+    readFocus = () => null
   }: {
     /** Start just off-screen, facing in, rather than already in the water. */
     arriving?: boolean;
     /** The way out, once the koi has been asked to leave. */
     readExit?: () => KoiExit;
+    /** Whatever has caught its attention: a ripple to investigate, or food. */
+    readFocus?: () => KoiFocus | null;
   } = {}
 ): { profile: KoiProfile; motion: KoiMotion } => {
   const profile = profileFor(entry);
@@ -294,8 +367,20 @@ export const createKoiBrain = (
 
           // Leaving outranks everything, the panel included: a koi on its way
           // out should not be turned back in by the shore it is crossing.
-          return exit
-            ? { heading: exit.heading, gain: EXIT_GAIN, kind: 'travel' }
+          if (exit) {
+            return { heading: exit.heading, gain: EXIT_GAIN, kind: 'travel' };
+          }
+
+          // Something caught its eye. The pace stays the koi's own cruise;
+          // only the heading changes, so it comes over rather than rushes.
+          const focus = readFocus();
+
+          return focus
+            ? {
+                heading: headingTo(context.position, focus.point),
+                gain: focus.gain,
+                kind: 'travel'
+              }
             : leanOffIsland(
                 desire,
                 context,
@@ -313,8 +398,13 @@ export const createKoiBrain = (
  *
  * @param canvas - The canvas to draw into; it owns the only WebGL context.
  * @param reducedMotion - Whether the visitor asked for reduced motion.
+ * @param hooks - How the koi reach the surface: ripples, and the food on it.
  */
-export const createPondStage = (canvas: HTMLCanvasElement, reducedMotion: boolean): PondStage => {
+export const createPondStage = (
+  canvas: HTMLCanvasElement,
+  reducedMotion: boolean,
+  hooks: PondHooks = {}
+): PondStage => {
   const gl = createPondRenderer(canvas);
   const scene = new Scene();
   scene.add(createLighting(POND_VIEW.lighting));
@@ -323,19 +413,110 @@ export const createPondStage = (canvas: HTMLCanvasElement, reducedMotion: boolea
   let island: PondIsland | null = null;
   const view: PondView = createPondView(pond);
   const swimmers = new Map<string, Swimmer>();
+  let clock = 0;
 
   const readIsland = (): PondIsland | null => island;
   // The first roster is the pond as the visitor finds it; only later changes
   // are arrivals and departures worth swimming in and out.
   let settled = false;
 
+  /**
+   * Decides what a koi is after this frame, before its brain steers.
+   *
+   * Food outranks curiosity: a koi mid-look will break off for a pellet, and
+   * each hungry koi goes for whichever pellet is nearest its nose right now.
+   */
+  const think = (swimmer: Swimmer, food: readonly FoodPellet[]): void => {
+    const nose = swimmer.motion.state.position;
+    const reach = pond.fishLength;
+    swimmer.focus = null;
+    swimmer.looking = false;
+    swimmer.rising = false;
+
+    if (swimmer.exit) {
+      return;
+    }
+
+    if (food.length === 0) {
+      swimmer.hungryFromS = null;
+      swimmer.meal = null;
+    } else if (swimmer.hungryFromS === null) {
+      swimmer.hungryFromS = clock + noticeDelay(swimmer.traits, Math.random(), swimmer.eager);
+    }
+
+    const pellet =
+      swimmer.hungryFromS !== null && clock >= swimmer.hungryFromS ? nearestTo(nose, food) : null;
+
+    if (pellet) {
+      swimmer.meal = pellet.id;
+      swimmer.focus = { point: pellet, gain: HUNGRY_GAIN };
+      swimmer.rising = distance(nose, pellet) < SURFACING_REACH * reach;
+      return;
+    }
+
+    const curious = swimmer.curiosity;
+
+    if (curious && clock >= curious.untilS) {
+      swimmer.curiosity = null;
+    } else if (curious && clock >= curious.fromS) {
+      const away = distance(nose, curious.point);
+
+      if (!curious.arrived && away < ARRIVED_REACH * reach) {
+        // However long the way was, it gets its time at the surface once there.
+        curious.arrived = true;
+        curious.untilS = clock + LINGER_S;
+      }
+
+      swimmer.focus = {
+        point: curious.point,
+        gain: curious.arrived ? MILLING_GAIN : CURIOUS_GAIN
+      };
+      swimmer.looking = curious.arrived;
+      swimmer.rising = away < SURFACING_REACH * reach;
+    }
+  };
+
+  /**
+   * Carries out what the koi decided, once it has moved: rising or sinking,
+   * taking a pellet its mouth has reached, and gulping at the surface.
+   */
+  const act = (
+    swimmer: Swimmer,
+    dt: number,
+    food: readonly FoodPellet[],
+    eaten: Set<number>
+  ): void => {
+    const nose = swimmer.motion.state.position;
+    const target = swimmer.rising ? SURFACE_DEPTH : swimmer.home;
+    swimmer.level += (target - swimmer.level) * (1 - Math.exp(-dt / DEPTH_EASE_S));
+
+    if (swimmer.meal !== null && !eaten.has(swimmer.meal)) {
+      const pellet = food.find((candidate) => candidate.id === swimmer.meal);
+
+      if (pellet && distance(nose, pellet) < BITE_REACH * pond.fishLength) {
+        eaten.add(pellet.id);
+        hooks.onEat?.(pellet.id);
+        swimmer.meal = null;
+        swimmer.gulpAtS = clock + GULP_EVERY_S;
+      }
+    }
+
+    // Up at the surface for a look, a koi mouths at the air now and then,
+    // and every gulp sends a ring out across the water.
+    if (swimmer.looking && swimmer.level > SURFACE_DEPTH - 0.8 && clock >= swimmer.gulpAtS) {
+      hooks.onRipple?.(nose.x, nose.y, 0.7);
+      swimmer.gulpAtS = clock + GULP_EVERY_S * (0.7 + Math.random() * 0.6);
+    }
+  };
+
   const spawn = (entry: KoiEntry, arriving: boolean): Swimmer => {
-    // The swimmer is referenced by its own brain's exit hook, so it exists
-    // before the brain does and is filled in straight after.
-    const swimmer = { exit: null } as Swimmer;
+    // The swimmer is referenced by its own brain's hooks, so it exists before
+    // the brain does and is filled in straight after.
+    const swimmer = { exit: null, focus: null } as Swimmer;
     const { profile, motion } = createKoiBrain(entry, pond, readIsland, {
       arriving,
-      readExit: () => swimmer.exit
+      readExit: () => swimmer.exit,
+      readFocus: () => swimmer.focus
     });
     const koi = entry.genome
       ? createGenomeKoi(entry.genome, profile.phenotype, profile.trim)
@@ -353,13 +534,25 @@ export const createPondStage = (canvas: HTMLCanvasElement, reducedMotion: boolea
         });
     koi.mount(scene);
 
+    const home = entry.seed % DEPTH_LEVELS;
+
     return Object.assign(swimmer, {
       entry,
       koi,
       motion,
       bodyPx: pxPerUnit(pond.fishLength) * profile.build.lengthScale,
       lastHeading: null,
-      lastSpeed: 0
+      lastSpeed: 0,
+      traits: profile.traits,
+      eager: entry.genome?.variety === 'chagoi',
+      home,
+      level: home,
+      curiosity: null,
+      hungryFromS: null,
+      meal: null,
+      looking: false,
+      rising: false,
+      gulpAtS: 0
     });
   };
 
@@ -372,6 +565,9 @@ export const createPondStage = (canvas: HTMLCanvasElement, reducedMotion: boolea
   return {
     draw(dt) {
       const seconds = dt > 0 ? dt : 1e-6;
+      clock += dt;
+      const food = hooks.readFood?.() ?? [];
+      const eaten = new Set<number>();
 
       for (const [key, swimmer] of swimmers) {
         if (swimmer.exit) {
@@ -386,7 +582,9 @@ export const createPondStage = (canvas: HTMLCanvasElement, reducedMotion: boolea
           }
         }
 
+        think(swimmer, eaten.size > 0 ? food.filter((pellet) => !eaten.has(pellet.id)) : food);
         swimmer.motion.advance(dt);
+        act(swimmer, dt, food, eaten);
 
         const { state } = swimmer.motion;
         // The swimming model thinks in this koi's own body lengths, while the
@@ -402,7 +600,9 @@ export const createPondStage = (canvas: HTMLCanvasElement, reducedMotion: boolea
           turnRate,
           acceleration: (speed - swimmer.lastSpeed) / seconds,
           escapeIntensity: state.phase === 'escape' ? 1 : 0,
-          depth: swimDepth(state.depth)
+          // Drawn at the stage's own eased level, so a koi rising to the
+          // surface grows and brightens smoothly instead of popping up.
+          depth: swimDepth(swimmer.level)
         });
         swimmer.lastHeading = state.heading;
         swimmer.lastSpeed = speed;
@@ -454,6 +654,20 @@ export const createPondStage = (canvas: HTMLCanvasElement, reducedMotion: boolea
       }
 
       settled = true;
+    },
+
+    attend(point) {
+      // Kept far enough inside that a koi going to look stays in view.
+      const spot = insidePond(point, pond, pond.fishLength * 0.6);
+
+      for (const swimmer of swimmers.values()) {
+        if (swimmer.exit || tooShyToLook(swimmer.traits)) {
+          continue;
+        }
+
+        const fromS = clock + noticeDelay(swimmer.traits, Math.random(), swimmer.eager);
+        swimmer.curiosity = { point: spot, fromS, untilS: fromS + CURIOUS_S, arrived: false };
+      }
     },
 
     dispose() {
