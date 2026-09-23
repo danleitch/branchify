@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPondStage, pondFor, type KoiEntry, type PondStage } from '../lib/koi3d';
-import type { OwnedKoi } from '../lib/koi-account';
+import type { OwnedGoldfish, OwnedKoi } from '../lib/koi-account';
 import { insidePond, isOpenWater } from '../lib/koi-attention';
 import { buildKoiRoster } from '../lib/koi-roster';
 import { createWater } from '../lib/koi-water';
@@ -14,6 +14,8 @@ type Koi3dBackgroundProps = {
   baseFishCount?: number;
   /** Koi bought at the market; when there are any, they are the whole pond. */
   ownedKoi?: readonly OwnedKoi[];
+  /** Goldfish bought at the market, who swim with whichever koi are there. */
+  ownedGoldfish?: readonly OwnedGoldfish[];
   /** The panel, which the koi lean away from so they stay in view around it. */
   avoidRef?: RefObject<HTMLElement>;
 };
@@ -59,6 +61,7 @@ export const Koi3dBackground = ({
   recentBranches,
   baseFishCount,
   ownedKoi,
+  ownedGoldfish,
   avoidRef
 }: Koi3dBackgroundProps): JSX.Element => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -73,13 +76,14 @@ export const Koi3dBackground = ({
   // they wear is decided in one place whichever renderer draws them.
   const entries = useMemo<KoiEntry[]>(
     () =>
-      buildKoiRoster(recentBranches, baseFishCount, ownedKoi).map((descriptor) => ({
+      buildKoiRoster(recentBranches, baseFishCount, ownedKoi, ownedGoldfish).map((descriptor) => ({
         key: descriptor.key,
         seed: descriptor.seed,
         accent: descriptor.palette.marking,
-        genome: descriptor.genome
+        genome: descriptor.genome,
+        lengthCm: descriptor.lengthCm
       })),
-    [recentBranches, baseFishCount, ownedKoi]
+    [recentBranches, baseFishCount, ownedKoi, ownedGoldfish]
   );
 
   const entriesRef = useRef(entries);
@@ -283,6 +287,7 @@ export const Koi3dBackground = ({
         recentBranches={recentBranches}
         baseFishCount={baseFishCount}
         ownedKoi={ownedKoi}
+        ownedGoldfish={ownedGoldfish}
         avoidRef={avoidRef}
       />
     );

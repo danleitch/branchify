@@ -7,7 +7,7 @@ import {
   type PondBounds,
   type Swimmer
 } from '../lib/koi-pond';
-import type { OwnedKoi } from '../lib/koi-account';
+import type { OwnedGoldfish, OwnedKoi } from '../lib/koi-account';
 import { buildKoiRoster } from '../lib/koi-roster';
 import { createWater } from '../lib/koi-water';
 import { createPondScenery } from '../lib/pond-scenery';
@@ -19,6 +19,8 @@ type KoiBackgroundProps = {
   baseFishCount?: number;
   /** Koi bought at the market; when there are any, they are the whole pond. */
   ownedKoi?: readonly OwnedKoi[];
+  /** Goldfish bought at the market, who swim with whichever koi are there. */
+  ownedGoldfish?: readonly OwnedGoldfish[];
   /** The panel, which the koi treat as an island so they stay in view around it. */
   avoidRef?: RefObject<HTMLElement>;
 };
@@ -38,14 +40,15 @@ const KoiBackgroundInner = ({
   recentBranches,
   baseFishCount,
   ownedKoi,
+  ownedGoldfish,
   avoidRef
 }: KoiBackgroundProps): JSX.Element => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const swimmersRef = useRef<Swimmer[]>([]);
   const boundsRef = useRef<PondBounds>({ width: 0, height: 0 });
   const roster = useMemo(
-    () => buildKoiRoster(recentBranches, baseFishCount, ownedKoi),
-    [recentBranches, baseFishCount, ownedKoi]
+    () => buildKoiRoster(recentBranches, baseFishCount, ownedKoi, ownedGoldfish),
+    [recentBranches, baseFishCount, ownedKoi, ownedGoldfish]
   );
   const avoidElementRef = useRef(avoidRef);
   avoidElementRef.current = avoidRef;

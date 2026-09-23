@@ -1659,3 +1659,284 @@ code {
 .guide-liberties strong {
   color: #f9fafb;
 }
+
+/* ---------------------------------------------------------------------------
+   Particle settings
+   ------------------------------------------------------------------------ */
+
+.particles-icon {
+  display: inline-block;
+  transition: transform 0.4s ease;
+}
+
+.header-action:hover .particles-icon,
+.header-action:focus-visible .particles-icon {
+  transform: rotate(72deg) scale(1.08);
+}
+
+/* Docked beside the page rather than over a dimmed one, so each change can be
+   watched as it lands and the open background stays clickable. */
+.particle-panel {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 5;
+  width: min(22rem, calc(100% - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem 1.1rem 1.1rem;
+  border-radius: 16px;
+  background: rgba(13, 17, 23, 0.92);
+  border: 1px solid rgba(76, 127, 247, 0.3);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(10px);
+  color: #f3f4f6;
+}
+
+.particle-panel h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.particle-field {
+  display: grid;
+  grid-template-columns: 6.75rem minmax(0, 1fr) 3.25rem;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.particle-field-wide {
+  grid-template-columns: 6.75rem minmax(0, 1fr);
+}
+
+.particle-field label {
+  display: block;
+  font-size: 0.88rem;
+  color: #d1d5db;
+}
+
+.particle-field output {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.particle-field select,
+.particle-field input[type='text'] {
+  width: 100%;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.9rem;
+}
+
+.particle-field select {
+  padding-right: 2rem;
+  background-position: right 0.6rem center;
+}
+
+.particle-field input[type='range'] {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  accent-color: #4c7ff7;
+}
+
+.particle-field input[type='color'] {
+  width: 2.75rem;
+  height: 1.75rem;
+  padding: 0.1rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.particle-toggle {
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.particle-field:has(:disabled),
+.particle-toggle:has(:disabled) {
+  opacity: 0.45;
+}
+
+.particle-group {
+  border-top: 1px solid #1f2937;
+  padding-top: 0.45rem;
+}
+
+.particle-group summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.particle-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.particle-group summary::before {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+}
+
+.particle-group[open] summary::before {
+  transform: rotate(45deg);
+}
+
+.particle-group summary:focus-visible {
+  outline: 2px solid #4c7ff7;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.particle-group-body,
+.particle-subfields {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.particle-group-body {
+  padding: 0.45rem 0 0.3rem;
+}
+
+.particle-subfields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+/* On a phone the panel becomes a sheet along the bottom, leaving the top of
+   the page and its particles in view above it. */
+@media (max-width: 560px) {
+  .particle-panel {
+    top: auto;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    width: auto;
+    max-height: 60vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .particles-icon,
+  .particle-group summary::before {
+    transition: none;
+  }
+}
+
+/* Growth, pond value and goldfish in the koi market. */
+
+.koi-growth,
+.goldfish-origin {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 0.8rem;
+}
+
+.goldfish-origin {
+  color: #6b7280;
+}
+
+.goldfish-card,
+[data-rarity='goldfish'] {
+  --rarity: #fb923c;
+}
+
+.rarity-badge[data-rarity='goldfish'] {
+  border-color: rgba(251, 146, 60, 0.55);
+}
+
+.market-goldfish {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.koi-grown {
+  color: #34d399;
+  font-variant-numeric: tabular-nums;
+}
+
+.owned-koi-worth {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: #d1d5db;
+  font-size: 0.85rem;
+}
+
+.koi-gain {
+  color: #34d399;
+  font-size: 0.78rem;
+}
+
+.pond-summary {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(120, 72, 6, 0.35), rgba(17, 24, 39, 0.9));
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.pond-summary-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pond-summary-value h3 {
+  margin: 0;
+  color: #d1d5db;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pond-value-amount {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pond-value-amount .coin-icon {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.pond-summary-growth,
+.pond-summary-count {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 0.85rem;
+}
+
+.pond-summary-growth {
+  color: #a7f3d0;
+}
+
+.market-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}

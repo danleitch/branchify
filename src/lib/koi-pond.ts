@@ -130,7 +130,11 @@ const spawnPoint = (seed: number, bounds: PondBounds, length: number): Vec2 => {
 export const createSwimmer = (descriptor: KoiDescriptor, bounds: PondBounds): Swimmer => {
   const random = createRandom(descriptor.seed);
   const depth = random();
-  const length = nominalLength(bounds) * (0.82 + random() * 0.45);
+  const build = 0.82 + random() * 0.45;
+  // A market fish is drawn at the length it has grown to, to the same scale
+  // as the 3D pond: sixty centimetres to a nominal koi.
+  const scale = descriptor.lengthCm ? descriptor.lengthCm / 60 : build;
+  const length = nominalLength(bounds) * scale;
   // A koi is a heavy-bodied fish; the first pass drew them too slender to read as one.
   const girthRatio = 0.118 + random() * 0.032;
   const heading = random() * Math.PI * 2;
@@ -140,7 +144,8 @@ export const createSwimmer = (descriptor: KoiDescriptor, bounds: PondBounds): Sw
     descriptor,
     nose,
     heading,
-    speed: length * (0.22 + random() * 0.2),
+    // Small fish cover more of their own lengths a second than big ones do.
+    speed: nominalLength(bounds) * (scale < 1 ? Math.sqrt(scale) : scale) * (0.22 + random() * 0.2),
     length,
     girths: spineGirth(length, girthRatio),
     spine: createSpine(nose, heading, length),

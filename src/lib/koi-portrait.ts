@@ -13,7 +13,8 @@
  */
 import { advanceSpine, createSpine, spineGirth } from './koi';
 import { drawKoi } from './koi-draw';
-import { resolveLook, type KoiGenome } from './koi-genome';
+import { isGoldfish } from './goldfish';
+import { resolveLook, type FishGenome } from './koi-genome';
 import { buildPattern } from './koi-pattern';
 import {
   FILL,
@@ -41,8 +42,10 @@ let webglFailed = false;
 let queue: Promise<unknown> = Promise.resolve();
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
-export const portraitKey = (genome: KoiGenome): string =>
-  `${genome.variety}:${[...genome.modifiers].sort().join('+')}:${genome.seed}`;
+export const portraitKey = (genome: FishGenome): string =>
+  isGoldfish(genome)
+    ? `goldfish:${genome.variety}:${genome.seed}`
+    : `${genome.variety}:${[...genome.modifiers].sort().join('+')}:${genome.seed}`;
 
 const studioForStills = (): Studio | null => {
   if (studio || webglFailed) {
@@ -80,7 +83,7 @@ const canvasToUrl = (canvas: HTMLCanvasElement): Promise<string | null> =>
     canvas.toBlob((blob) => resolve(blob ? URL.createObjectURL(blob) : null), 'image/png');
   });
 
-const photograph = async (genome: KoiGenome, room: Studio): Promise<string | null> => {
+const photograph = async (genome: FishGenome, room: Studio): Promise<string | null> => {
   const koi = seatKoi(room, genome);
 
   koi.setBeat(PORTRAIT_BEAT);
@@ -94,7 +97,7 @@ const photograph = async (genome: KoiGenome, room: Studio): Promise<string | nul
 };
 
 /** The 2D pond's drawing of the fish, for a browser that can't give us WebGL. */
-const sketch = (genome: KoiGenome): Promise<string | null> => {
+const sketch = (genome: FishGenome): Promise<string | null> => {
   const canvas = document.createElement('canvas');
   canvas.width = PORTRAIT_WIDTH;
   canvas.height = PORTRAIT_HEIGHT;
@@ -134,7 +137,7 @@ const sketch = (genome: KoiGenome): Promise<string | null> => {
   return canvasToUrl(canvas);
 };
 
-const takePortrait = (genome: KoiGenome): Promise<string | null> => {
+const takePortrait = (genome: FishGenome): Promise<string | null> => {
   const next = queue.then(async () => {
     clearTimeout(idleTimer);
     const room = studioForStills();
@@ -159,7 +162,7 @@ const takePortrait = (genome: KoiGenome): Promise<string | null> => {
  * Portraits are cached for the session: a fish's photograph never changes, so
  * reopening the market shows every fish instantly.
  */
-export const koiPortrait = (genome: KoiGenome): Promise<string | null> => {
+export const koiPortrait = (genome: FishGenome): Promise<string | null> => {
   const key = portraitKey(genome);
   const cached = portraits.get(key);
 

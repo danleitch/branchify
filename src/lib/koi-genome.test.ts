@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PHYSICAL } from '../vendor/koi-pond/koi3d/config';
+import { GOLDFISH, goldfishOf, type GoldfishGenome, type GoldfishVarietyId } from './goldfish';
 import {
   buildMarkings,
   koiBuildFor,
-  koiLengthCm,
   koiRarity,
   koiTitle,
   physiqueFor,
@@ -142,13 +142,42 @@ describe('describing a koi', () => {
     expect(koiBuildFor(genome('chagoi', 1))).toBe('react');
     expect(koiBuildFor(genome('chagoi', 2))).toBe('react');
   });
+});
 
-  it('quotes a believable adult length', () => {
-    for (let seed = 0; seed < 30; seed += 1) {
-      const length = koiLengthCm(genome('kohaku', seed));
-      expect(length).toBeGreaterThanOrEqual(45);
-      expect(length).toBeLessThanOrEqual(80);
+describe('goldfish', () => {
+  const goldfish = (variety: GoldfishVarietyId, seed = 77): GoldfishGenome => ({
+    species: 'goldfish',
+    variety,
+    seed
+  });
+
+  it('dress in their own breed’s colours', () => {
+    for (const breed of GOLDFISH) {
+      const { appearance } = resolveLook(goldfish(breed.id));
+      const base = typeof breed.base === 'string' ? [breed.base, breed.base] : breed.base;
+
+      expect(between(appearance.base, base as [string, string]), breed.id).toBe(true);
+      expect(appearance.finOpacity).toBe(breed.finOpacity);
     }
+  });
+
+  it('wear a calico’s speckles, and a common goldfish nothing but gold', () => {
+    const shubunkin = resolveLook(goldfish('shubunkin')).pattern.patches;
+
+    expect(shubunkin.filter((patch) => patch.layer === 1).length).toBeGreaterThanOrEqual(6);
+    expect(resolveLook(goldfish('common')).pattern.patches).toEqual([]);
+  });
+
+  it('are built by breed: a slender comet, a round fantail', () => {
+    expect(koiBuildFor(goldfish('comet'))).toBe('vanilla');
+    expect(koiBuildFor(goldfish('fantail'))).toBe('react');
+  });
+
+  it('draw a breed this version doesn’t know as a common goldfish', () => {
+    const future = goldfish('space-comet' as GoldfishVarietyId);
+
+    expect(goldfishOf(future).id).toBe('common');
+    expect(() => resolveLook(future)).not.toThrow();
   });
 });
 
@@ -166,6 +195,18 @@ describe('physiqueFor', () => {
     expect(grown.caudal!.span!).toBeGreaterThan(phenotype.caudal.span * 1.3);
     expect(grown.dorsal!.span!).toBeGreaterThan(DEFAULT_PHYSICAL.dorsal.span);
     expect(grown.length).toBe(1);
+  });
+
+  it('gives a goldfish bigger eyes than a koi, and its breed’s tail', () => {
+    const comet = physiqueFor({ species: 'goldfish', variety: 'comet', seed: 1 }, phenotype);
+    const common = physiqueFor({ species: 'goldfish', variety: 'common', seed: 1 }, phenotype);
+    const wakin = physiqueFor({ species: 'goldfish', variety: 'wakin', seed: 1 }, phenotype);
+
+    expect(comet.eyes!.size!).toBeGreaterThan(DEFAULT_PHYSICAL.eyes.size);
+    // A comet's lobes trail far behind, and a twin tail fans out wide across the water.
+    expect(comet.caudal!.sweep!).toBeGreaterThan(common.caudal!.sweep!);
+    expect(wakin.caudal!.spread!).toBeGreaterThan(common.caudal!.spread! * 2);
+    expect(comet.length).toBe(1);
   });
 });
 

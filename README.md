@@ -133,10 +133,25 @@ GitHub icon:
   or saved to your recent list, it earns 25 coins, up to 8 branches a day. New
   visitors start with 100 coins, plus 25 for each branch already in their
   recent list.
+- **Koi for sale by age.** Like a dealer's, the tank is mostly tosai (koi in
+  their first year) and nisai, with the odd sansai or older fish, and every tank
+  has at least one tosai. Price follows size: half the length is a quarter of
+  the price.
+- **Fish grow.** A day for you is a week in the pond. Koi and goldfish follow a
+  real growth curve (von Bertalanffy), fast when young and levelling off at an
+  adult size set by their genes. A young koi grows about a centimetre every two
+  or three days, and most top out in the seventies, with the odd 80 cm+ jumbo.
+  Value grows with the square of length, and the market's **Your pond** tab
+  shows the pond's total value, what it has gained, and how fast it is growing.
 - **Your pond.** Once you own a market koi, market koi fill the whole pond and
   the branch koi and residents rest. The pond holds up to 10 koi. Releasing a
-  koi pays back half its price, and it's gone for good: it never returns to the
-  market. Release them all and the branch koi return.
+  fish pays back half of what it is worth now, and it's gone for good: it never
+  returns to the market. Release them all and the branch koi return.
+- **Goldfish.** A Goldfish tab sells real pond breeds (Common, Comet, Sarasa
+  Comet, Shubunkin, Bristol Shubunkin, Wakin, Tamasaba and Fantail), always in
+  stock and cheap. They swim alongside whichever koi are in the pond, up to 6,
+  drawn to scale beside them and without barbels. Fancy breeds too delicate to
+  share a pond with koi aren't sold.
 - **How it works, and the koi guide.** A panel at the top of the market
   explains the rules. The book icon opens a short guide to koi: where they come
   from, how their names work, every variety grouped by show family, the traits,
@@ -182,6 +197,9 @@ src/
     koi-genome.ts             # Variety + traits + seed → a koi's exact look
     koi-market.ts             # The daily stock, names and prices
     koi-account.ts            # Earning, buying and releasing, as pure functions
+    fish-growth.ts            # How fish grow, and what growing makes them worth
+    goldfish.ts               # The pond goldfish breeds, as recipes
+    goldfish-market.ts        # The always-in-stock goldfish counter
     koi-portrait.ts           # Photographs koi for the market's cards
     koi3d.ts                  # The pond stage: arrivals, departures, the panel
     koi-attention.ts          # How koi notice a touch on the water, and food

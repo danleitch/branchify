@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   KOI_ACCOUNT_STORAGE_KEY,
+  buyGoldfish,
   buyListing,
   createAccount,
   dismissWelcome,
   markSeen,
   parseAccount,
+  releaseGoldfish,
   releaseKoi,
   restockTank,
   rewardBranch,
@@ -13,6 +15,7 @@ import {
   type PurchaseOutcome,
   type RestockOutcome
 } from '../lib/koi-account';
+import type { GoldfishListing } from '../lib/goldfish-market';
 import { marketDay, msUntilRestock } from '../lib/koi-market-clock';
 import type { KoiListing } from '../lib/koi-market';
 import { readStorage, writeStorage } from '../lib/storage';
@@ -27,8 +30,11 @@ export type UseKoiAccount = {
   /** Pays for a branch the first time it is put to use; repeats and over-limit days earn nothing. */
   rewardForBranch: (branch: string) => void;
   buy: (listing: KoiListing) => PurchaseOutcome;
+  buyGoldfish: (listing: GoldfishListing) => PurchaseOutcome;
   /** Releases a koi and returns what the market paid back for it. */
   release: (id: string) => number;
+  /** Releases a goldfish and returns what the market paid back for it. */
+  releaseGoldfish: (id: string) => number;
   /** Pays to swap the day's tank for a fresh six. */
   restock: (day: string) => RestockOutcome;
   markMarketSeen: (day: string) => void;
@@ -106,9 +112,31 @@ export const useKoiAccount = (recentBranches: readonly RecentBranch[]): UseKoiAc
     [commit]
   );
 
+  const buyAGoldfish = useCallback(
+    (listing: GoldfishListing): PurchaseOutcome => {
+      const result = buyGoldfish(accountRef.current, listing, new Date());
+
+      if (result.outcome === 'bought') {
+        commit(result.account);
+      }
+
+      return result.outcome;
+    },
+    [commit]
+  );
+
   const release = useCallback(
     (id: string): number => {
-      const result = releaseKoi(accountRef.current, id);
+      const result = releaseKoi(accountRef.current, id, new Date());
+      commit(result.account);
+      return result.refund;
+    },
+    [commit]
+  );
+
+  const releaseAGoldfish = useCallback(
+    (id: string): number => {
+      const result = releaseGoldfish(accountRef.current, id, new Date());
       commit(result.account);
       return result.refund;
     },
@@ -143,7 +171,9 @@ export const useKoiAccount = (recentBranches: readonly RecentBranch[]): UseKoiAc
     lastReward,
     rewardForBranch,
     buy,
+    buyGoldfish: buyAGoldfish,
     release,
+    releaseGoldfish: releaseAGoldfish,
     restock,
     markMarketSeen,
     dismissMarketWelcome

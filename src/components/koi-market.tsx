@@ -1,37 +1,44 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { goldfishOf } from '../lib/goldfish';
+import { goldfishCounter, type GoldfishListing } from '../lib/goldfish-market';
 import {
   COINS_PER_BRANCH,
   DAILY_BRANCH_REWARDS,
   RESTOCK_PRICE,
+  goldfishBlocker,
   purchaseBlocker,
   rewardsLeftToday,
   tankToday,
   type KoiAccount,
+  type OwnedGoldfish,
   type OwnedKoi,
   type PurchaseOutcome,
   type RestockOutcome
 } from '../lib/koi-account';
-import { MAX_KOI } from '../lib/koi';
+import { MAX_GOLDFISH } from '../lib/koi';
 import { closeLiveKoi } from '../lib/koi-live';
 import { formatCountdown, koiTank, msUntilRestock, type KoiListing } from '../lib/koi-market';
 import { CoinAmount, CoinIcon } from './coin-icon';
 import { KoiGuide } from './koi-guide';
 import { KoiMarketExplainer } from './koi-market-explainer';
-import { ListingCard, OwnedKoiRow } from './koi-market-cards';
+import { GoldfishCard, ListingCard, OwnedFishRow, PondSummary } from './koi-market-cards';
 
 type KoiMarketProps = {
   account: KoiAccount;
   /** Today's market day; the tank restocks when it changes. */
   day: string;
   onBuy: (listing: KoiListing) => PurchaseOutcome;
+  onBuyGoldfish: (listing: GoldfishListing) => PurchaseOutcome;
   /** Releases a koi and returns what the market paid back. */
   onRelease: (id: string) => number;
+  /** Releases a goldfish and returns what the market paid back. */
+  onReleaseGoldfish: (id: string) => number;
   onRestock: () => RestockOutcome;
   onDismissWelcome: () => void;
   onClose: () => void;
 };
 
-type Tab = 'stock' | 'pond';
+type Tab = 'stock' | 'goldfish' | 'pond';
 
 type Toast = { id: number; message: string };
 
@@ -58,7 +65,7 @@ const useNow = (intervalMs: number): Date => {
  * The tank the market opens on is nobody's news; a replacement, a restock or
  * the midnight turnover is, and those arrivals are marked for a few seconds.
  */
-const useArrivals = (stock: readonly KoiListing[]): ReadonlySet<string> => {
+const useArrivals = (stock: readonly { id: string }[]): ReadonlySet<string> => {
   const seen = useRef<ReadonlySet<string> | null>(null);
   const [arrivals, setArrivals] = useState<ReadonlySet<string>>(new Set());
 
@@ -165,22 +172,31 @@ const RestockControl = ({ coins, restocks, onRestock }: RestockControlProps): JS
   );
 };
 
+const splitKey = (key: string): string[] => (key ? key.split(' ') : []);
+
 export const KoiMarket = ({
   account,
   day,
   onBuy,
+  onBuyGoldfish,
   onRelease,
+  onReleaseGoldfish,
   onRestock,
   onDismissWelcome,
   onClose
 }: KoiMarketProps): JSX.Element => {
-  const { restocks, sold } = tankToday(account, day);
+  const { restocks, sold, goldfish: goldfishSold } = tankToday(account, day);
+  // Joined into strings so the tanks are only rebuilt when a sale actually changes them.
   const soldKey = sold.join(' ');
-  const stock = useMemo(
-    () => koiTank(day, restocks, soldKey ? soldKey.split(' ') : []),
-    [day, restocks, soldKey]
+  const goldfishSoldKey = goldfishSold.join(' ');
+  const swimmingKey = account.goldfish.map((fish) => fish.name).join(' ');
+  const stock = useMemo(() => koiTank(day, restocks, splitKey(soldKey)), [day, restocks, soldKey]);
+  const counter = useMemo(
+    () => goldfishCounter(day, splitKey(goldfishSoldKey), splitKey(swimmingKey)),
+    [day, goldfishSoldKey, swimmingKey]
   );
   const arrivals = useArrivals(stock);
+  const goldfishArrivals = useArrivals(counter);
   const [tab, setTab] = useState<Tab>('stock');
   const [guideOpen, setGuideOpen] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -239,6 +255,25 @@ export const KoiMarket = ({
     );
   };
 
+  const handleBuyGoldfish = (listing: GoldfishListing): void => {
+    if (onBuyGoldfish(listing) !== 'bought') {
+      return;
+    }
+
+    const breed = goldfishOf(listing.genome).name;
+    const next = goldfishCounter(
+      day,
+      [...goldfishSold, listing.id],
+      [...splitKey(swimmingKey), listing.name]
+    ).find((candidate) => candidate.genome.variety === listing.genome.variety);
+
+    say(
+      `${listing.name} is swimming in your pond.${
+        next ? ` ${next.name}, another ${breed}, has come up to the glass.` : ''
+      }`
+    );
+  };
+
   const handleRelease = (koi: OwnedKoi): void => {
     const refund = onRelease(koi.id);
     const last = account.owned.length === 1;
@@ -248,6 +283,11 @@ export const KoiMarket = ({
         ? `${koi.name} swam off, and ${refund} coins came back. Your branch koi are back in the pond.`
         : `${koi.name} swam off, and ${refund} coins came back.`
     );
+  };
+
+  const handleReleaseGoldfish = (fish: OwnedGoldfish): void => {
+    const refund = onReleaseGoldfish(fish.id);
+    say(`${fish.name} swam off, and ${refund} coins came back.`);
   };
 
   const handleRestock = (): void => {
@@ -326,6 +366,16 @@ export const KoiMarket = ({
                 <button
                   type="button"
                   role="tab"
+                  id="market-tab-goldfish"
+                  aria-selected={tab === 'goldfish'}
+                  aria-controls="market-panel-goldfish"
+                  onClick={() => setTab('goldfish')}
+                >
+                  Goldfish
+                </button>
+                <button
+                  type="button"
+                  role="tab"
                   id="market-tab-pond"
                   aria-selected={tab === 'pond'}
                   aria-controls="market-panel-pond"
@@ -333,7 +383,7 @@ export const KoiMarket = ({
                 >
                   Your pond{' '}
                   <span className="market-tab-count">
-                    {account.owned.length}/{MAX_KOI}
+                    {account.owned.length + account.goldfish.length}
                   </span>
                 </button>
               </div>
@@ -347,7 +397,7 @@ export const KoiMarket = ({
               )}
             </div>
 
-            {tab === 'stock' ? (
+            {tab === 'stock' && (
               <section
                 id="market-panel-stock"
                 role="tabpanel"
@@ -365,38 +415,99 @@ export const KoiMarket = ({
                   />
                 ))}
               </section>
-            ) : (
+            )}
+
+            {tab === 'goldfish' && (
+              <section
+                id="market-panel-goldfish"
+                role="tabpanel"
+                aria-labelledby="market-tab-goldfish"
+                className="market-goldfish"
+              >
+                <p className="market-note">
+                  Pond goldfish, always in stock. They swim with your koi, never instead of them,
+                  and the pond has room for {MAX_GOLDFISH} ({account.goldfish.length} so far).
+                </p>
+                <div className="market-grid">
+                  {counter.map((listing) => (
+                    <GoldfishCard
+                      key={listing.id}
+                      listing={listing}
+                      blocker={goldfishBlocker(account, listing)}
+                      coins={account.coins}
+                      fresh={goldfishArrivals.has(listing.id)}
+                      onBuy={handleBuyGoldfish}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {tab === 'pond' && (
               <section
                 id="market-panel-pond"
                 role="tabpanel"
                 aria-labelledby="market-tab-pond"
                 className="market-pond"
               >
-                {account.owned.length === 0 ? (
+                {account.owned.length === 0 && account.goldfish.length === 0 ? (
                   <div className="market-empty">
                     <p>
-                      No market koi yet, so your branch koi have the pond to themselves. Buy one
-                      from today&apos;s tank and your market koi take over.
+                      No market fish yet, so your branch koi have the pond to themselves. Buy a koi
+                      from today&apos;s tank and your market koi take over; goldfish just join in.
                     </p>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => setTab('stock')}
-                    >
-                      See today&apos;s koi
-                    </button>
+                    <div className="market-empty-actions">
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => setTab('stock')}
+                      >
+                        See today&apos;s koi
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => setTab('goldfish')}
+                      >
+                        See the goldfish
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <>
+                    <PondSummary account={account} now={now} />
                     <p className="market-note">
-                      Market koi fill the whole pond. Release them all and your branch koi come
-                      back.
+                      {account.owned.length > 0
+                        ? 'Market koi fill the whole pond. Release them all and your branch koi come back.'
+                        : 'Your branch koi still have the pond; your goldfish swim with them.'}{' '}
+                      A day for you is a week in the pond, so everything here keeps growing.
                     </p>
-                    <ul className="owned-list">
-                      {account.owned.map((koi) => (
-                        <OwnedKoiRow key={koi.id} koi={koi} now={now} onRelease={handleRelease} />
-                      ))}
-                    </ul>
+                    {account.owned.length > 0 && (
+                      <ul className="owned-list" aria-label="Your koi">
+                        {account.owned.map((koi) => (
+                          <OwnedFishRow
+                            key={koi.id}
+                            species="koi"
+                            fish={koi}
+                            now={now}
+                            onRelease={() => handleRelease(koi)}
+                          />
+                        ))}
+                      </ul>
+                    )}
+                    {account.goldfish.length > 0 && (
+                      <ul className="owned-list" aria-label="Your goldfish">
+                        {account.goldfish.map((fish) => (
+                          <OwnedFishRow
+                            key={fish.id}
+                            species="goldfish"
+                            fish={fish}
+                            now={now}
+                            onRelease={() => handleReleaseGoldfish(fish)}
+                          />
+                        ))}
+                      </ul>
+                    )}
                   </>
                 )}
               </section>

@@ -2,11 +2,15 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { goldfishOf } from '../lib/goldfish';
+import { goldfishCounter } from '../lib/goldfish-market';
 import {
   RESTOCK_PRICE,
+  buyGoldfish,
   buyListing,
   createAccount,
   dismissWelcome,
+  releaseGoldfish,
   releaseKoi,
   restockTank,
   type KoiAccount
@@ -36,8 +40,18 @@ const Harness = ({
         setAccount(result.account);
         return result.outcome;
       }}
+      onBuyGoldfish={(listing) => {
+        const result = buyGoldfish(account, listing, new Date());
+        setAccount(result.account);
+        return result.outcome;
+      }}
       onRelease={(id) => {
-        const result = releaseKoi(account, id);
+        const result = releaseKoi(account, id, new Date());
+        setAccount(result.account);
+        return result.refund;
+      }}
+      onReleaseGoldfish={(id) => {
+        const result = releaseGoldfish(account, id, new Date());
         setAccount(result.account);
         return result.refund;
       }}
@@ -104,7 +118,7 @@ describe('KoiMarket', () => {
     );
 
     expect(screen.getByLabelText(`${5000 - listing.price} coins`)).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Your pond/ })).toHaveTextContent('1/10');
+    expect(screen.getByRole('tab', { name: /Your pond/ })).toHaveTextContent('Your pond 1');
     expect(screen.getByRole('status')).toHaveTextContent(
       `${listing.name} is swimming in your pond, and your branch koi are resting. ${newcomer.name} has joined the tank.`
     );
@@ -169,7 +183,8 @@ describe('KoiMarket', () => {
     await user.click(screen.getByRole('button', { name: `Release ${listing.name}` }));
     await user.click(screen.getByRole('button', { name: 'Release' }));
 
-    const refund = Math.floor(listing.price / 2 / 5) * 5;
+    // Just bought, so worth what was paid: half of that comes back.
+    const refund = Math.floor(listing.price / 2);
     expect(screen.queryByRole('heading', { name: listing.name })).not.toBeInTheDocument();
     expect(screen.getByLabelText(`${refund} coins`)).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('branch koi are back in the pond');
@@ -186,13 +201,94 @@ describe('KoiMarket', () => {
     await settled();
 
     await user.click(screen.getByRole('tab', { name: /Your pond/ }));
-    expect(screen.getByText(/No market koi yet/)).toBeInTheDocument();
+    expect(screen.getByText(/No market fish yet/)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: "See today's koi" }));
     expect(screen.getByRole('tab', { name: "Today's koi" })).toHaveAttribute(
       'aria-selected',
       'true'
     );
+  });
+
+  it('tags each koi with its age and size, and how big it could grow', async () => {
+    render(<Harness initial={accountWith(0)} />);
+    await settled();
+
+    const listing = koiTank(DAY)[0]!;
+    const card = cardFor(listing.name)!;
+
+    expect(within(card).getByText(new RegExp(`· ${Math.round(listing.lengthCm)} cm$`))).toHaveClass(
+      'koi-size'
+    );
+    expect(card).toHaveTextContent(`Could grow to about ${Math.round(listing.adultCm)} cm`);
+  });
+
+  it('sells goldfish from their own tab, to swim alongside the koi', async () => {
+    const user = userEvent.setup();
+    const counter = goldfishCounter(DAY);
+    const cheapest = counter[0]!;
+    render(<Harness initial={accountWith(100)} />);
+    await settled();
+
+    await user.click(screen.getByRole('tab', { name: 'Goldfish' }));
+    await settled();
+
+    expect(screen.getAllByRole('article')).toHaveLength(counter.length);
+    expect(screen.getByRole('tabpanel', { name: 'Goldfish' })).toHaveTextContent(
+      'Pond goldfish, always in stock.'
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: `Buy ${cheapest.name} for ${cheapest.price} coins` })
+    );
+
+    const next = goldfishCounter(DAY, [cheapest.id], [cheapest.name])[0]!;
+    expect(screen.getByLabelText(`${100 - cheapest.price} coins`)).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      `${cheapest.name} is swimming in your pond. ${next.name}, another ${goldfishOf(next.genome).name}, has come up to the glass.`
+    );
+    expect(cardFor(next.name)).toBeInTheDocument();
+    await settled();
+
+    await user.click(screen.getByRole('tab', { name: /Your pond/ }));
+    await settled();
+
+    expect(screen.getByRole('list', { name: 'Your goldfish' })).toHaveTextContent(cheapest.name);
+    expect(screen.getByText(/branch koi still have the pond/)).toBeInTheDocument();
+  });
+
+  it('adds up what the pond is worth', async () => {
+    const user = userEvent.setup();
+    const [koi] = koiTank(DAY);
+    const [goldfish] = goldfishCounter(DAY);
+    let account = buyListing(accountWith(5000), koi!, new Date()).account;
+    account = buyGoldfish(account, goldfish!, new Date()).account;
+    render(<Harness initial={account} />);
+
+    await user.click(screen.getByRole('tab', { name: /Your pond/ }));
+    await settled();
+
+    const summary = screen.getByRole('region', { name: 'Pond value' });
+    expect(summary).toHaveTextContent((koi!.price + goldfish!.price).toLocaleString());
+    expect(summary).toHaveTextContent('1 of 10 koi · 1 of 6 goldfish');
+    expect(summary).toHaveTextContent(/growing about \d+ a day/);
+  });
+
+  it('releases a goldfish for half what it is worth', async () => {
+    const user = userEvent.setup();
+    const [goldfish] = goldfishCounter(DAY);
+    render(
+      <Harness initial={buyGoldfish(accountWith(goldfish!.price), goldfish!, new Date()).account} />
+    );
+
+    await user.click(screen.getByRole('tab', { name: /Your pond/ }));
+    await settled();
+    await user.click(screen.getByRole('button', { name: `Release ${goldfish!.name}` }));
+    expect(screen.getByText(/won't come back/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Release' }));
+
+    expect(screen.getByLabelText(`${Math.floor(goldfish!.price / 2)} coins`)).toBeInTheDocument();
+    expect(screen.getByText(/No market fish yet/)).toBeInTheDocument();
   });
 
   it('explains how the market works, open for a new visitor with their welcome', async () => {
@@ -211,7 +307,10 @@ describe('KoiMarket', () => {
     expect(explainer).toHaveTextContent('Buy one and another takes its place');
     expect(explainer).toHaveTextContent(`Restock now for ${RESTOCK_PRICE}`);
     expect(explainer).toHaveTextContent("Release a koi and it's gone for good.");
-    expect(explainer).toHaveTextContent('The pond holds 10.');
+    expect(explainer).toHaveTextContent("you get half of what it's worth back");
+    expect(explainer).toHaveTextContent('A day for you is a week in the pond.');
+    expect(explainer).toHaveTextContent('The pond holds 10 koi.');
+    expect(explainer).toHaveTextContent("There's room for 6.");
     expect(explainer).toHaveTextContent('gold and platinum included, was bred by people');
 
     await user.click(within(explainer).getByRole('button', { name: 'Got it' }));

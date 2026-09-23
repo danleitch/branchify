@@ -6,6 +6,11 @@
  * else — the exact shade of its red, where its markings fall, how long its
  * fins trail, how big it grew — is drawn from the seed the same way every time.
  *
+ * A goldfish comes through here too. Its genome names a breed instead of a
+ * variety and carries no traits, but it is dressed by the same recipe
+ * machinery and drawn with the same body, so everything that draws a fish can
+ * take either.
+ *
  * Nothing here touches three.js, so the roster, the market and the 2D fallback
  * can all read a koi's look without pulling the renderer into the main bundle.
  */
@@ -13,8 +18,8 @@ import type { KoiAppearance } from '../vendor/koi-pond/koi3d/config';
 import { DEFAULT_PHYSICAL } from '../vendor/koi-pond/koi3d/config';
 import type { KoiPatch, KoiPatternData } from '../vendor/koi-pond/koi3d/pattern';
 import { MAX_PATCHES } from '../vendor/koi-pond/koi3d/pattern';
-import { koiBuild } from '../vendor/koi-pond/model/traits';
 import type { KoiFramework, KoiPhenotype } from '../vendor/koi-pond/model/types';
+import { goldfishOf, goldfishPhysique, isGoldfish, type GoldfishGenome } from './goldfish';
 import { mixHex, withAlpha } from './koi-colour';
 import type { KoiPalette as FlatPalette } from './koi-roster';
 import { createRandom, hashString } from './seeded-random';
@@ -24,6 +29,7 @@ import {
   RARITIES,
   allowsModifier,
   findVariety,
+  type FishLookRecipe,
   type KoiModifier,
   type KoiRarity,
   type KoiVariety,
@@ -37,6 +43,9 @@ export type KoiGenome = {
   modifiers: readonly KoiModifier[];
   seed: number;
 };
+
+/** Any fish the market sells: a koi, or a goldfish. */
+export type FishGenome = KoiGenome | GoldfishGenome;
 
 /** Everything a renderer needs to dress one koi. */
 export type KoiLook = {
@@ -97,9 +106,6 @@ const BUTTERFLY_FINS = {
   anal: 1.4
 } as const;
 
-/** Converts the build's length multiplier into the size a listing quotes. */
-const CM_PER_LENGTH = 60;
-
 /** Looks up a genome's variety, falling back to kohaku for anything unknown. */
 export const varietyOf = (genome: KoiGenome): KoiVariety =>
   findVariety(genome.variety) ?? findVariety('kohaku')!;
@@ -127,13 +133,19 @@ export const koiRarity = (genome: KoiGenome): KoiRarity => {
   return RARITIES[Math.min(RARITIES.length - 1, index)]!;
 };
 
-/** The body archetype; varieties known for their size keep theirs. */
-export const koiBuildFor = (genome: KoiGenome): KoiFramework =>
-  varietyOf(genome).build ?? BUILDS[genome.seed % BUILDS.length]!;
+/** The body archetype; varieties known for their size keep theirs, and every goldfish breed has one. */
+export const koiBuildFor = (genome: FishGenome): KoiFramework =>
+  isGoldfish(genome)
+    ? goldfishOf(genome).build
+    : (varietyOf(genome).build ?? BUILDS[genome.seed % BUILDS.length]!);
 
-/** How long the fish is, nose to tail, as the market quotes it. */
-export const koiLengthCm = (genome: KoiGenome): number =>
-  Math.round(koiBuild(koiBuildFor(genome), genome.seed).lengthScale * CM_PER_LENGTH);
+/** The recipe a fish is dressed from: its variety's, or its breed's. */
+const recipeOf = (genome: FishGenome): FishLookRecipe =>
+  isGoldfish(genome) ? goldfishOf(genome) : varietyOf(genome);
+
+/** The traits a fish carries; a goldfish is born with none. */
+const modifiersOf = (genome: FishGenome): readonly KoiModifier[] =>
+  isGoldfish(genome) ? [] : genome.modifiers;
 
 const within = (draw: number, band: readonly [number, number]): number =>
   band[0] + draw * (band[1] - band[0]);
@@ -193,8 +205,9 @@ export const buildMarkings = (bands: readonly MarkingBand[], seed: number): KoiP
  * The same genome always resolves to the same look, so a fish bought today is
  * exactly the fish that swims in the pond tomorrow.
  */
-export const resolveLook = (genome: KoiGenome): KoiLook => {
-  const variety = varietyOf(genome);
+export const resolveLook = (genome: FishGenome): KoiLook => {
+  const variety = recipeOf(genome);
+  const modifiers = modifiersOf(genome);
   const random = createRandom(hashString(`${genome.seed}`) ^ TONE_DRAWS);
   const tone = (value: Tone): string =>
     typeof value === 'string' ? value : mixHex(value[0], value[1], random());
@@ -212,13 +225,13 @@ export const resolveLook = (genome: KoiGenome): KoiLook => {
   let gloss = variety.gloss ?? DEFAULT_GLOSS;
   let roughness = variety.roughness ?? DEFAULT_ROUGHNESS;
 
-  if (hasModifier(genome, 'doitsu')) {
+  if (modifiers.includes('doitsu')) {
     scales = 0.08;
     netting *= 0.25;
     gloss = Math.max(gloss, 0.6);
   }
 
-  if (hasModifier(genome, 'ginrin')) {
+  if (modifiers.includes('ginrin')) {
     // Deeper relief under a hard, glassy coat is what makes each scale flash
     // as the fish turns, which is the whole of gin rin.
     scales = Math.min(1.25, scales * 1.6 + 0.2);
@@ -240,7 +253,9 @@ export const resolveLook = (genome: KoiGenome): KoiLook => {
       accent: fin,
       roughness,
       gloss,
-      finOpacity: hasModifier(genome, 'butterfly') ? 0.66 : DEFAULT_FIN_OPACITY,
+      finOpacity: modifiers.includes('butterfly')
+        ? 0.66
+        : (variety.finOpacity ?? DEFAULT_FIN_OPACITY),
       scaleDepth: scales,
       scaleDensity: 30
     },
@@ -257,11 +272,16 @@ export const resolveLook = (genome: KoiGenome): KoiLook => {
 };
 
 /**
- * Grows a butterfly koi's fins on top of the body its build already chose.
+ * Grows a butterfly koi's fins on top of the body its build already chose, and
+ * turns a goldfish's body into its breed's.
  *
  * Other koi pass straight through: the build's own proportions are the fish.
  */
-export const physiqueFor = (genome: KoiGenome, phenotype: KoiPhenotype): KoiPhenotype => {
+export const physiqueFor = (genome: FishGenome, phenotype: KoiPhenotype): KoiPhenotype => {
+  if (isGoldfish(genome)) {
+    return goldfishPhysique(goldfishOf(genome), phenotype);
+  }
+
   if (!hasModifier(genome, 'butterfly')) {
     return phenotype;
   }

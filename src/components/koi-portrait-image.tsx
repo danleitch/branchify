@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import type { KoiGenome } from '../lib/koi-genome';
+import type { FishGenome } from '../lib/koi-genome';
 import { hideLiveKoi, showLiveKoi } from '../lib/koi-live';
 import { koiPortrait, portraitKey } from '../lib/koi-portrait';
 
 type KoiPortraitImageProps = {
-  genome: KoiGenome;
+  genome: FishGenome;
   alt: string;
   /** While true, the photograph gives way to the koi itself, swimming. */
   active?: boolean;

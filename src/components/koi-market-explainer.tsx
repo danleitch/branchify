@@ -6,7 +6,7 @@ import {
   WELCOME_COINS,
   type KoiAccount
 } from '../lib/koi-account';
-import { MAX_KOI } from '../lib/koi';
+import { MAX_GOLDFISH, MAX_KOI } from '../lib/koi';
 import { CoinAmount } from './coin-icon';
 
 type KoiMarketExplainerProps = {
@@ -59,13 +59,23 @@ export const KoiMarketExplainer = ({
           <CoinAmount coins={RESTOCK_PRICE} /> and six fresh koi swim in.
         </li>
         <li>
+          <strong>Koi grow.</strong> A day for you is a week in the pond. A young koi grows about a
+          centimetre every two or three days, slowing as it nears its adult size, and the bigger it
+          gets, the more it&apos;s worth. Tosai, koi in their first year, are the cheapest way in.
+        </li>
+        <li>
           <strong>Release a koi and it&apos;s gone for good.</strong> It swims off rather than back
-          to the market, and you get half its price back.
+          to the market, and you get half of what it&apos;s worth back.
         </li>
         <li>
           <strong>Your pond.</strong> Once you own a market koi, market koi replace all your branch
           and base koi. New fish swim in from the edge and leavers swim off. Release them all and
-          the branch koi come back. The pond holds {MAX_KOI}.
+          the branch koi come back. The pond holds {MAX_KOI} koi.
+        </li>
+        <li>
+          <strong>Goldfish.</strong> Cheap, cheerful and always in stock. They swim with whatever
+          koi are in the pond, branch koi included, and never replace them. There&apos;s room for{' '}
+          {MAX_GOLDFISH}.
         </li>
         <li>
           <strong>Say hello.</strong> Click the water and your koi come over to see what&apos;s

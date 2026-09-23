@@ -1,4 +1,6 @@
 import { useAwake } from '../hooks/use-awake';
+import { KOI_AGE_CLASSES, POND_DAYS_PER_DAY, lengthAtAge } from '../lib/fish-growth';
+import { GOLDFISH, type GoldfishVariety } from '../lib/goldfish';
 import type { KoiGenome } from '../lib/koi-genome';
 import {
   KOI_GROUPS,
@@ -71,8 +73,50 @@ const SECTIONS = [
   { id: 'guide-names', label: 'Reading a name' },
   { id: 'guide-varieties', label: 'The varieties' },
   { id: 'guide-traits', label: 'Traits' },
+  { id: 'guide-growth', label: 'Age and size' },
+  { id: 'guide-goldfish', label: 'Goldfish' },
   { id: 'guide-flair', label: 'Real, and our flair' }
 ] as const;
+
+/** A typical koi's length through its first years, for the age table: a mid-seventies adult. */
+const TYPICAL_ADULT_CM = 75;
+
+const GoldfishEntry = ({ breed }: { breed: GoldfishVariety }): JSX.Element => {
+  const { awake, wakers } = useAwake();
+
+  return (
+    <li className="guide-variety" data-rarity="goldfish" {...wakers}>
+      <KoiPortraitImage
+        genome={{
+          species: 'goldfish',
+          variety: breed.id,
+          seed: hashString(`koi-guide:goldfish:${breed.id}`)
+        }}
+        alt={breed.name}
+        active={awake}
+        lazy
+      />
+      <div className="guide-variety-text">
+        <h5>
+          {breed.name}
+          {breed.kanji && (
+            <>
+              {' '}
+              <span lang="ja" className="koi-kanji">
+                {breed.kanji}
+              </span>
+            </>
+          )}
+        </h5>
+        {breed.origin && <p className="guide-meaning">{breed.origin}</p>}
+        <p>{breed.blurb}</p>
+        <p className="guide-meaning">
+          Grows to {breed.adult[0]}–{breed.adult[1]} cm
+        </p>
+      </div>
+    </li>
+  );
+};
 
 const VarietyEntry = ({ variety }: { variety: KoiVariety }): JSX.Element => {
   const { awake, wakers } = useAwake();
@@ -256,6 +300,59 @@ export const KoiGuide = ({ onBack }: KoiGuideProps): JSX.Element => (
       </ul>
     </section>
 
+    <section id="guide-growth" className="guide-section">
+      <h4>Age and size</h4>
+      <p>
+        Koi are sold by age as much as by variety, and each year of a koi’s life has its own name. A
+        young koi can grow several centimetres a month in a warm pond, then slows as it nears the
+        size its bloodline allows. Most top out around 60 to 75 cm; a <em>jumbo</em> passes 80. Size
+        is a large part of a koi’s price: the same fish is worth many times more at 60 cm than it
+        was as a tosai, which is why keepers buy young fish with promise and grow them on.
+      </p>
+      <dl className="guide-glossary">
+        {KOI_AGE_CLASSES.slice(0, 5).map((age, index) => (
+          <div key={age.name}>
+            <dt>
+              {age.name}{' '}
+              <span lang="ja" className="koi-kanji">
+                {age.kanji}
+              </span>
+            </dt>
+            <dd>
+              In its {age.year} year, around{' '}
+              {Math.round(lengthAtAge('koi', index + 0.75, TYPICAL_ADULT_CM))} cm
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <aside className="guide-fact">
+        <strong>How long they live.</strong> Koi often live for 30 or 40 years. The most famous, a
+        scarlet koi called Hanako, was said to be 226 years old when she died in 1977, going by the
+        growth rings on her scales.
+      </aside>
+    </section>
+
+    <section id="guide-goldfish" className="guide-section">
+      <h4>Goldfish</h4>
+      <p>
+        Goldfish are koi’s smaller cousins. Both are carp, but goldfish were bred in China more than
+        a thousand years ago from wild crucian carp, long before the first koi. They reached Japan
+        in the 1500s and Europe in the 1600s. The easy way to tell the two apart is the mouth: a koi
+        has two pairs of whiskers, called barbels, and a goldfish has none.
+      </p>
+      <p>
+        Only a few kinds belong in a koi pond: the long-bodied ones with a single or simple twin
+        tail, which are hardy and quick enough to hold their own. Fancy goldfish like orandas,
+        ranchu and bubble eyes are too slow and too delicate for koi, so the market doesn’t sell
+        them. A goldfish rarely passes 30 cm, so even a grown one looks small beside a koi.
+      </p>
+      <ul className="guide-varieties">
+        {GOLDFISH.map((breed) => (
+          <GoldfishEntry key={breed.id} breed={breed} />
+        ))}
+      </ul>
+    </section>
+
     <section id="guide-flair" className="guide-section">
       <h4>What’s real, and where we took liberties</h4>
       <ul className="guide-liberties">
@@ -281,6 +378,17 @@ export const KoiGuide = ({ onBack }: KoiGuideProps): JSX.Element => (
           <strong>Generated patterns.</strong> Every fish’s markings are generated from its
           variety’s rules, so no two are alike, but real patterns are wilder still, and a real
           Midorigoi’s green tends to fade as it grows.
+        </li>
+        <li data-kind="real">
+          <strong>Real growth, on a faster clock.</strong> Koi and goldfish follow the growth curves
+          real fish do, fast when young and slowing toward their adult size. Only the clock is ours:
+          every day here is {POND_DAYS_PER_DAY} days in the pond, so you can watch a tosai grow in
+          weeks rather than years.
+        </li>
+        <li data-kind="flair">
+          <strong>Worth grows with size.</strong> Here a fish’s value simply follows its length.
+          Real koi are judged on how their skin and pattern develop, too, and not every tosai grows
+          into a prize.
         </li>
         <li data-kind="flair">
           <strong>Pet names.</strong> Names like Hana and Sora are just lovely Japanese words. Real

@@ -1,18 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { koiRarity, varietyOf } from './koi-genome';
+import { koiRarity, varietyOf, type KoiGenome } from './koi-genome';
 import {
   DAILY_STOCK,
   KOI_NAMES,
   describeListing,
   formatCountdown,
   isSelfColoured,
+  isTosai,
   koiTank,
   marketDay,
   msUntilRestock,
   nameMeaning,
+  priceFor,
   type KoiListing
 } from './koi-market';
-import { RARITIES } from './koi-varieties';
+import { RARITIES, findVariety } from './koi-varieties';
 
 /** A month of market days, for properties that should hold every single day. */
 const MONTH = Array.from({ length: 30 }, (_unused, index) =>
@@ -37,6 +39,7 @@ const expectHealthyTank = (tank: readonly KoiListing[], context: string): void =
     varieties.some((variety) => !isSelfColoured(variety)),
     context
   ).toBe(true);
+  expect(tank.some(isTosai), context).toBe(true);
 };
 
 /** Buys whatever swims in each slot in turn, returning every tank along the way. */
@@ -81,24 +84,23 @@ describe('a fresh tank', () => {
     expect(days.length).toBeLessThan(MONTH.length);
   });
 
-  it('prices in round fives, rarer fish dearer', () => {
-    const listings = MONTH.flatMap((day) => koiTank(day));
-
-    for (const listing of listings) {
+  it('prices in round fives', () => {
+    for (const listing of MONTH.flatMap((day) => koiTank(day))) {
       expect(listing.price % 5).toBe(0);
-      expect(listing.price).toBeGreaterThanOrEqual(60);
+      expect(listing.price).toBeGreaterThanOrEqual(5);
     }
+  });
 
-    const cheapest = (rarity: string): number =>
-      Math.min(
-        ...listings
-          .filter((listing) => varietyOf(listing.genome).rarity === rarity)
-          .map((listing) => listing.price)
-      );
+  it('prices by rarity, traits and size: half the length, a quarter the price', () => {
+    const kohaku: KoiGenome = { variety: 'kohaku', modifiers: [], seed: 1 };
+    const variety = findVariety('kohaku')!;
 
-    expect(cheapest('legendary')).toBeGreaterThan(cheapest('rare'));
-    expect(cheapest('rare')).toBeGreaterThan(cheapest('uncommon'));
-    expect(cheapest('uncommon')).toBeGreaterThan(cheapest('common'));
+    expect(priceFor(kohaku, variety, 0.5, 50)).toBe(80);
+    expect(priceFor(kohaku, variety, 0.5, 25)).toBe(20);
+    expect(priceFor({ ...kohaku, modifiers: ['ginrin'] }, variety, 0.5, 50)).toBe(120);
+    expect(
+      priceFor({ ...kohaku, variety: 'kumonryu' }, findVariety('kumonryu')!, 0.5, 50)
+    ).toBeGreaterThan(80 * 5);
   });
 
   it('keys every listing by its day, restock, place and generation', () => {
@@ -111,6 +113,34 @@ describe('a fresh tank', () => {
 
     const ids = MONTH.flatMap((day) => koiTank(day).map((listing) => listing.id));
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe('sizes', () => {
+  const listings = MONTH.flatMap((day) => koiTank(day));
+
+  it('sells koi the way dealers do: mostly young, now and then a big one', () => {
+    const tosai = listings.filter(isTosai);
+
+    expect(tosai.length / listings.length).toBeGreaterThan(0.3);
+    expect(tosai.length / listings.length).toBeLessThan(0.7);
+    expect(listings.some((listing) => listing.lengthCm > 50)).toBe(true);
+  });
+
+  it('lists every koi smaller than it will grow, and no bigger than a jumbo', () => {
+    for (const listing of listings) {
+      expect(listing.lengthCm).toBeGreaterThan(10);
+      expect(listing.lengthCm).toBeLessThan(listing.adultCm);
+      expect(listing.adultCm).toBeLessThanOrEqual(92);
+    }
+  });
+
+  it('prices a tosai low enough to start with', () => {
+    const tosai = listings.filter(
+      (listing) => isTosai(listing) && koiRarity(listing.genome) === 'common'
+    );
+
+    expect(Math.max(...tosai.map((listing) => listing.price))).toBeLessThanOrEqual(30);
   });
 });
 

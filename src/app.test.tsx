@@ -572,7 +572,9 @@ describe('App', () => {
       const dialog = await openMarket(user);
       await user.click(within(dialog).getAllByRole('button', { name: /^Buy / })[0]!);
 
-      expect(within(dialog).getByRole('tab', { name: /Your pond/ })).toHaveTextContent('1/10');
+      expect(within(dialog).getByRole('tab', { name: /Your pond/ })).toHaveTextContent(
+        'Your pond 1'
+      );
 
       await user.click(within(dialog).getByRole('button', { name: 'Close koi market' }));
       const settings = await openSettings(user);
@@ -600,7 +602,9 @@ describe('App', () => {
       render(<App />);
       const reopened = await openMarket(user);
 
-      expect(within(reopened).getByRole('tab', { name: /Your pond/ })).toHaveTextContent('1/10');
+      expect(within(reopened).getByRole('tab', { name: /Your pond/ })).toHaveTextContent(
+        'Your pond 1'
+      );
     });
 
     it('restocks the tank for 100 coins, and remembers it', async () => {
@@ -653,5 +657,69 @@ describe('App', () => {
 
     expect(screen.getByLabelText('Description')).toHaveValue('restore me');
     expect(screen.getByText('fix/BRF-7-restore-me')).toBeInTheDocument();
+  });
+
+  describe('particle settings', () => {
+    const particlesButton = (): HTMLElement =>
+      screen.getByRole('button', { name: 'Particle settings' });
+
+    const openSettings = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
+      await user.click(screen.getByRole('button', { name: 'Settings' }));
+      return screen.getByRole('dialog', { name: 'Settings' });
+    };
+
+    it('takes the koi market’s place in the header while particles are the background', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      expect(screen.queryByRole('button', { name: 'Particle settings' })).not.toBeInTheDocument();
+
+      const dialog = await openSettings(user);
+      await user.click(within(dialog).getByRole('radio', { name: 'Particles' }));
+
+      expect(particlesButton()).toBeInTheDocument();
+
+      await user.click(within(dialog).getByRole('radio', { name: 'Plain' }));
+
+      expect(screen.queryByRole('button', { name: 'Particle settings' })).not.toBeInTheDocument();
+    });
+
+    it('opens the particle controls from the header button', async () => {
+      window.localStorage.setItem('branchify-background', 'particles');
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      await user.click(particlesButton());
+
+      expect(screen.getByRole('dialog', { name: 'Particles' })).toBeInTheDocument();
+      expect(particlesButton()).toHaveAttribute('aria-expanded', 'true');
+    });
+
+    it('opens the particle controls from Settings', async () => {
+      window.localStorage.setItem('branchify-background', 'particles');
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const settings = await openSettings(user);
+      await user.click(within(settings).getByRole('button', { name: 'Customise the particles' }));
+
+      expect(screen.getByRole('dialog', { name: 'Particles' })).toBeInTheDocument();
+      expect(screen.queryByRole('dialog', { name: 'Settings' })).not.toBeInTheDocument();
+    });
+
+    it('remembers a chosen preset across a remount', async () => {
+      window.localStorage.setItem('branchify-background', 'particles');
+      const user = userEvent.setup({ delay: null });
+      const { unmount } = render(<App />);
+
+      await user.click(particlesButton());
+      await user.selectOptions(screen.getByRole('combobox', { name: 'Preset' }), 'NASA');
+      unmount();
+
+      render(<App />);
+      await user.click(particlesButton());
+
+      expect(screen.getByRole('combobox', { name: 'Preset' })).toHaveDisplayValue('NASA');
+    });
   });
 });

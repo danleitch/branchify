@@ -12,7 +12,7 @@ import { koiProfile } from '../vendor/koi-pond/model/traits';
 import type { Koi } from '../vendor/koi-pond/three/koi';
 import { createLighting } from '../vendor/koi-pond/three/scene';
 import { createGenomeKoi } from './koi-body';
-import { koiBuildFor, type KoiGenome } from './koi-genome';
+import { koiBuildFor, type FishGenome } from './koi-genome';
 
 /** How much of the frame's width the fish's length fills. */
 export const FILL = 0.82;
@@ -97,7 +97,7 @@ export const frameStudio = (
  * The model's origin is its pivot, a third of the way back from the nose;
  * sliding it forward by the rest of the way to half-length centres the fish.
  */
-export const seatKoi = (studio: Studio, genome: KoiGenome): Koi => {
+export const seatKoi = (studio: Studio, genome: FishGenome): Koi => {
   const profile = koiProfile(koiBuildFor(genome), genome.seed);
   const koi = createGenomeKoi(genome, profile.phenotype, profile.trim);
   const length = koi.config.physical.length;

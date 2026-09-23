@@ -28,6 +28,7 @@ type SettingsPanelProps = {
   /** How many market koi the visitor owns; while there are any, they are the whole pond. */
   marketKoiCount?: number;
   onOpenMarket?: () => void;
+  onOpenParticles?: () => void;
   aiHandoffTargets: AiProvider[];
   onAiHandoffTargetsChange: (targets: AiProvider[]) => void;
   onAddType: (type: string) => void;
@@ -44,6 +45,7 @@ export const SettingsPanel = ({
   onBaseFishCountChange,
   marketKoiCount = 0,
   onOpenMarket,
+  onOpenParticles,
   aiHandoffTargets,
   onAiHandoffTargetsChange,
   onAddType,
@@ -239,6 +241,12 @@ export const SettingsPanel = ({
                 </button>
               )}
             </>
+          )}
+
+          {background === 'particles' && onOpenParticles && (
+            <button type="button" className="btn btn-secondary" onClick={onOpenParticles}>
+              Customise the particles
+            </button>
           )}
         </fieldset>
       </div>

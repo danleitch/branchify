@@ -20,9 +20,10 @@
 import type { RecentBranch } from '../types';
 import { WATER_TINT, dimHex, hslToHex, mixHex, withAlpha } from './koi-colour';
 import type { KoiPatternName } from './koi-pattern';
-import { DEFAULT_BASE_FISH, MAX_KOI } from './koi';
-import type { OwnedKoi } from './koi-account';
-import { resolveLook, type KoiGenome } from './koi-genome';
+import { growthOf, type FishSpecies, type Stocked } from './fish-growth';
+import { DEFAULT_BASE_FISH, MAX_GOLDFISH, MAX_KOI } from './koi';
+import type { OwnedGoldfish, OwnedKoi } from './koi-account';
+import { resolveLook, type FishGenome } from './koi-genome';
 import { hashString } from './seeded-random';
 
 // Re-exported so existing callers keep importing the seeded helpers from here.
@@ -63,8 +64,10 @@ export type KoiDescriptor = {
   /** The branch this koi stands for, a market koi's name, or null for a resident. */
   label: string | null;
   palette: KoiPalette;
-  /** Present for a koi bought at the market, whose look comes from its variety. */
-  genome?: KoiGenome;
+  /** Present for a fish bought at the market, whose look comes from its variety. */
+  genome?: FishGenome;
+  /** How long a market fish has grown by now, in centimetres. */
+  lengthCm?: number;
 };
 
 /**
@@ -150,23 +153,37 @@ export const sinkPalette = (palette: KoiPalette, depth: number): KoiPalette => {
  * is theirs, and the branch koi and residents rest until every market koi has
  * been released again.
  *
+ * Goldfish are company, not replacements. They swim with whichever koi are in
+ * the pond, branch koi or market koi, and have their own room.
+ *
  * @param baseFishCount - The floor Settings has chosen; clamped into range so
  * a corrupt or future stored value can't grow the pond past its own cap.
+ * @param now - When the pond is being stocked, which sets how far each market
+ * fish has grown.
  */
 export const buildKoiRoster = (
   recentBranches: readonly RecentBranch[],
   baseFishCount: number = DEFAULT_BASE_FISH,
-  ownedKoi: readonly OwnedKoi[] = []
+  ownedKoi: readonly OwnedKoi[] = [],
+  ownedGoldfish: readonly OwnedGoldfish[] = [],
+  now: Date = new Date()
 ): KoiDescriptor[] => {
+  const marketFish = (
+    species: FishSpecies,
+    fish: Stocked & { id: string; name: string; genome: FishGenome }
+  ): KoiDescriptor => ({
+    // Prefixed so a market fish can never share a key with a branch of the same name.
+    key: `${species === 'koi' ? 'market' : 'goldfish'}:${fish.id}`,
+    seed: fish.genome.seed,
+    label: fish.name,
+    palette: resolveLook(fish.genome).flat,
+    genome: fish.genome,
+    lengthCm: growthOf(species, fish, now).lengthCm
+  });
+  const goldfish = ownedGoldfish.slice(0, MAX_GOLDFISH).map((fish) => marketFish('goldfish', fish));
+
   if (ownedKoi.length > 0) {
-    return ownedKoi.slice(0, MAX_KOI).map((koi) => ({
-      // Prefixed so a market koi can never share a key with a branch of the same name.
-      key: `market:${koi.id}`,
-      seed: koi.genome.seed,
-      label: koi.name,
-      palette: resolveLook(koi.genome).flat,
-      genome: koi.genome
-    }));
+    return [...ownedKoi.slice(0, MAX_KOI).map((koi) => marketFish('koi', koi)), ...goldfish];
   }
 
   const base = Math.min(MAX_KOI, Math.max(0, Math.round(baseFishCount)));
@@ -187,5 +204,5 @@ export const buildKoiRoster = (
     roster.push({ key, seed, label: null, palette: residentPalette(seed) });
   }
 
-  return roster;
+  return [...roster, ...goldfish];
 };

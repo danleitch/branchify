@@ -177,6 +177,8 @@ export type KoiVariety = {
   scales?: number;
   gloss?: number;
   roughness?: number;
+  /** How opaque the fins are, where a variety's are thinner than a koi's usual 0.8. */
+  finOpacity?: number;
   /** Born doitsu: no scales to sparkle and none to strip. */
   scaleless?: boolean;
   /** The body archetype, where the variety is known for one. */
@@ -184,6 +186,24 @@ export type KoiVariety = {
   /** The 2D pond's nearest pattern, for visitors without WebGL. */
   flat: FlatPattern;
 };
+
+/** The part of a variety that says how a fish of it looks, which the goldfish share. */
+export type FishLookRecipe = Pick<
+  KoiVariety,
+  | 'base'
+  | 'primary'
+  | 'secondary'
+  | 'belly'
+  | 'fin'
+  | 'markings'
+  | 'netting'
+  | 'metallic'
+  | 'scales'
+  | 'gloss'
+  | 'roughness'
+  | 'finOpacity'
+  | 'flat'
+>;
 
 /** The bright white ground the go-sanke are written on. */
 const WHITE: Tone = ['#f8f4ec', '#efe9dd'];

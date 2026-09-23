@@ -9,7 +9,7 @@
  * the way a koi does against a gentle current.
  */
 import type { Koi } from '../vendor/koi-pond/three/koi';
-import type { KoiGenome } from './koi-genome';
+import type { FishGenome } from './koi-genome';
 import { PORTRAIT_BEAT, portraitKey } from './koi-portrait';
 import {
   STUDIO_MOTION,
@@ -105,7 +105,7 @@ export const hideLiveKoi = (host: HTMLElement | null): void => {
 };
 
 /** Brings a genome's koi to life inside a host, over its photograph. */
-export const showLiveKoi = (genome: KoiGenome, host: HTMLElement): void => {
+export const showLiveKoi = (genome: FishGenome, host: HTMLElement): void => {
   if (prefersStill()) {
     return;
   }

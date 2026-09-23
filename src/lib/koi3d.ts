@@ -59,13 +59,14 @@ import {
   tooShyToLook,
   type PondPoint
 } from './koi-attention';
+import { goldfishOf, isGoldfish } from './goldfish';
 import { createGenomeKoi } from './koi-body';
-import { koiBuildFor, type KoiGenome } from './koi-genome';
+import { koiBuildFor, type FishGenome } from './koi-genome';
 
 /** A rectangle the koi will not swim under, in CSS pixels. */
 export type PondIsland = { x: number; y: number; width: number; height: number };
 
-/** One koi to put in the pond. */
+/** One fish to put in the pond. */
 export type KoiEntry = {
   /** Stable identity, so a koi survives the roster changing around it. */
   key: string;
@@ -73,8 +74,10 @@ export type KoiEntry = {
   seed: number;
   /** The branch's own colour, worn as the dominant marking. */
   accent: string;
-  /** A market koi's genome, which dresses it as its variety instead of in `accent`. */
-  genome?: KoiGenome;
+  /** A market fish's genome, which dresses it as its variety instead of in `accent`. */
+  genome?: FishGenome;
+  /** How long a market fish has grown, in centimetres; a branch koi goes by its build. */
+  lengthCm?: number;
 };
 
 export type PondStage = {
@@ -147,15 +150,49 @@ export const pondFor = (width: number, height: number, reducedMotion: boolean): 
   };
 };
 
+/** The real length one nominal fish length stands for, so fish of every size are drawn to scale. */
+export const CM_PER_FISH_LENGTH = 60;
+
+/**
+ * How big a fish is to its brain, against how big it is drawn.
+ *
+ * Swimming speed doesn't grow in step with size: a small fish covers more of
+ * its own lengths each second than a big one. The brain paces a fish in its
+ * own body lengths, so a small fish is given a brain a little larger than its
+ * body. That keeps a goldfish darting rather than crawling, while a koi from
+ * a nominal length up swims exactly as its size says.
+ */
+export const paceScale = (scale: number): number => (scale < 1 ? Math.sqrt(scale) : scale);
+
+/** Goldfish are busier than koi: brisker, and bolder about food, each breed at its own pace. */
+const goldfishTraits = (traits: KoiTraits, pace: number): KoiTraits => ({
+  ...traits,
+  cruiseSpeed: Math.min(1, (0.5 + traits.cruiseSpeed * 0.4) * pace),
+  shyness: traits.shyness * 0.7
+});
+
 /**
  * Dresses one of the library's koi in a branch's colour.
  *
- * A market koi keeps the library's palette untouched here: its skin comes from
- * its variety when the body is built, and the brain never reads colours.
+ * A market fish keeps the library's palette untouched here: its skin comes
+ * from its variety when the body is built, and the brain never reads colours.
+ * Its size does come through, from how far it has grown.
  */
 export const profileFor = (entry: KoiEntry): KoiProfile => {
   if (entry.genome) {
-    return koiProfile(koiBuildFor(entry.genome), entry.seed);
+    const profile = koiProfile(koiBuildFor(entry.genome), entry.seed);
+    const scale = entry.lengthCm ? entry.lengthCm / CM_PER_FISH_LENGTH : null;
+    const sized = scale
+      ? {
+          ...profile,
+          build: { ...profile.build, lengthScale: paceScale(scale) },
+          phenotype: { ...profile.phenotype, length: scale }
+        }
+      : profile;
+
+    return isGoldfish(entry.genome)
+      ? { ...sized, traits: goldfishTraits(sized.traits, goldfishOf(entry.genome).pace ?? 1) }
+      : sized;
   }
 
   const build = BUILDS[entry.seed % BUILDS.length]!;
@@ -207,7 +244,12 @@ type Swimmer = {
   entry: KoiEntry;
   koi: Koi;
   motion: KoiMotion;
+  /** One of its own body lengths, as drawn, in pixels. */
   bodyPx: number;
+  /** Its drawn length against the length its brain paces it by. */
+  meshRatio: number;
+  /** Its brain's length against a nominal fish's, which sets how close its mouth must come. */
+  reach: number;
   lastHeading: number | null;
   lastSpeed: number;
   /** Where a koi that has left the roster is swimming off to; null while it belongs here. */
@@ -251,6 +293,21 @@ const EXIT_CLEARANCE = 1.2;
 
 /** How far off-screen an arriving koi starts, as a fraction of the nominal fish length. */
 const ARRIVAL_OFFSET = 0.6;
+
+/** The depth level a fish keeps when nothing is going on; goldfish keep to the upper water. */
+const homeDepth = (entry: KoiEntry): number =>
+  entry.genome && isGoldfish(entry.genome)
+    ? DEPTH_LEVELS - 4 + (entry.seed % 4)
+    : entry.seed % DEPTH_LEVELS;
+
+/** Known for being first to food: a chagoi among koi, and any goldfish but a slow one. */
+const isEager = (genome: FishGenome | undefined): boolean => {
+  if (!genome) {
+    return false;
+  }
+
+  return isGoldfish(genome) ? (goldfishOf(genome).pace ?? 1) >= 1 : genome.variety === 'chagoi';
+};
 
 /** Whether a departing koi is far enough past every edge to vanish without being seen to. */
 export const hasLeftPond = (
@@ -360,7 +417,7 @@ export const createKoiBrain = (
   return {
     profile,
     motion: createKoiMotion(
-      { profile, pond, ...start, depth: entry.seed % DEPTH_LEVELS },
+      { profile, pond, ...start, depth: homeDepth(entry) },
       {
         desire: (desire, context) => {
           const exit = readExit();
@@ -493,7 +550,7 @@ export const createPondStage = (
     if (swimmer.meal !== null && !eaten.has(swimmer.meal)) {
       const pellet = food.find((candidate) => candidate.id === swimmer.meal);
 
-      if (pellet && distance(nose, pellet) < BITE_REACH * pond.fishLength) {
+      if (pellet && distance(nose, pellet) < BITE_REACH * pond.fishLength * swimmer.reach) {
         eaten.add(pellet.id);
         hooks.onEat?.(pellet.id);
         swimmer.meal = null;
@@ -534,17 +591,20 @@ export const createPondStage = (
         });
     koi.mount(scene);
 
-    const home = entry.seed % DEPTH_LEVELS;
+    const home = homeDepth(entry);
+    const drawn = profile.phenotype.length ?? profile.build.lengthScale;
 
     return Object.assign(swimmer, {
       entry,
       koi,
       motion,
-      bodyPx: pxPerUnit(pond.fishLength) * profile.build.lengthScale,
+      bodyPx: pxPerUnit(pond.fishLength) * drawn,
+      meshRatio: drawn / profile.build.lengthScale,
+      reach: profile.build.lengthScale,
       lastHeading: null,
       lastSpeed: 0,
       traits: profile.traits,
-      eager: entry.genome?.variety === 'chagoi',
+      eager: isEager(entry.genome),
       home,
       level: home,
       curiosity: null,
@@ -607,7 +667,13 @@ export const createPondStage = (
         swimmer.lastHeading = state.heading;
         swimmer.lastSpeed = speed;
         swimmer.koi.update(dt);
-        view.placeKoi(swimmer.koi.object, state.position, state.heading, state.length);
+        // Anchored by the length it is drawn at, so its mouth is where its brain thinks it is.
+        view.placeKoi(
+          swimmer.koi.object,
+          state.position,
+          state.heading,
+          state.length * swimmer.meshRatio
+        );
       }
 
       gl.render(scene, view.camera);

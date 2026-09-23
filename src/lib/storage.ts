@@ -9,6 +9,11 @@ import type {
 import { AI_PROVIDERS } from './ai-handoff';
 import { DEFAULT_NAMING_SETTINGS, sanitizeBranchType } from './branch-utils';
 import { DEFAULT_BASE_FISH, MAX_BASE_FISH, MIN_BASE_FISH } from './koi';
+import {
+  DEFAULT_PARTICLE_SETTINGS,
+  sanitizeParticleSettings,
+  type ParticleSettings
+} from './particles';
 
 export const FORM_STORAGE_KEY = 'branchify-form';
 export const RECENT_STORAGE_KEY = 'branchify-recent';
@@ -18,6 +23,8 @@ export const BACKGROUND_STORAGE_KEY = 'branchify-background';
 // The pond's own setting, not a naming one either, and not read unless the
 // koi background is actually mounted.
 export const BASE_FISH_STORAGE_KEY = 'branchify-koi-base-fish';
+// How the particles background looks; like the pond's fish, nothing to do with naming.
+export const PARTICLES_STORAGE_KEY = 'branchify-particles';
 // Matches the pond's own cap, so a base fish count of 10 has ten real branches
 // to promote out of "resident" and into "yours" before the koi runs out.
 export const MAX_RECENT_BRANCHES = MAX_BASE_FISH;
@@ -197,4 +204,17 @@ export const parseBaseFish = (raw: string | null): number => {
   return Number.isInteger(value) && value >= MIN_BASE_FISH && value <= MAX_BASE_FISH
     ? value
     : DEFAULT_BASE_FISH;
+};
+
+/** Keeps whatever still makes sense from a stored look and defaults the rest. */
+export const parseParticleSettings = (raw: string | null): ParticleSettings => {
+  if (!raw) {
+    return DEFAULT_PARTICLE_SETTINGS;
+  }
+
+  try {
+    return sanitizeParticleSettings(JSON.parse(raw));
+  } catch {
+    return DEFAULT_PARTICLE_SETTINGS;
+  }
 };

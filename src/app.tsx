@@ -3,6 +3,8 @@ import { BranchForm } from './components/branch-form';
 import { BranchOutputs } from './components/branch-outputs';
 import { GithubButton } from './components/github-button';
 import { KoiMarketButton } from './components/koi-market-button';
+import { ParticleSettingsPanel } from './components/particle-settings-panel';
+import { ParticlesButton } from './components/particles-button';
 import { RecentBranches } from './components/recent-branches';
 import { ResetButton } from './components/reset-button';
 import { SettingsButton } from './components/settings-button';
@@ -21,14 +23,17 @@ import {
   BASE_FISH_STORAGE_KEY,
   EMPTY_FORM,
   FORM_STORAGE_KEY,
+  PARTICLES_STORAGE_KEY,
   SETTINGS_STORAGE_KEY,
   parseBackground,
   parseBaseFish,
   parseForm,
+  parseParticleSettings,
   parseSettings,
   readStorage,
   writeStorage
 } from './lib/storage';
+import type { ParticleSettings } from './lib/particles';
 import type {
   BackgroundStyle,
   BranchSeparators,
@@ -98,6 +103,10 @@ export const App = (): JSX.Element => {
   const [baseFishCount, setBaseFishCount] = useState<number>(() =>
     parseBaseFish(readStorage(BASE_FISH_STORAGE_KEY))
   );
+  const [particleSettings, setParticleSettings] = useState<ParticleSettings>(() =>
+    parseParticleSettings(readStorage(PARTICLES_STORAGE_KEY))
+  );
+  const [particlesOpen, setParticlesOpen] = useState(false);
   const { recentBranches, addRecentBranch, removeRecentBranch } = useRecentBranches();
   const market = useKoiAccount(recentBranches);
   const { rewardForBranch, markMarketSeen } = market;
@@ -134,6 +143,10 @@ export const App = (): JSX.Element => {
   useEffect(() => {
     writeStorage(BASE_FISH_STORAGE_KEY, String(baseFishCount));
   }, [baseFishCount]);
+
+  useEffect(() => {
+    writeStorage(PARTICLES_STORAGE_KEY, JSON.stringify(particleSettings));
+  }, [particleSettings]);
 
   // Auto-saves the current branch name to the recent list once the form has
   // sat idle for a while, so users get history without an explicit save step.
@@ -226,13 +239,14 @@ export const App = (): JSX.Element => {
             recentBranches={recentBranches}
             baseFishCount={baseFishCount}
             ownedKoi={market.account.owned}
+            ownedGoldfish={market.account.goldfish}
             avoidRef={panelRef}
           />
         </Suspense>
       )}
       {background === 'particles' && (
         <Suspense fallback={null}>
-          <ParticlesBackground />
+          <ParticlesBackground settings={particleSettings} />
         </Suspense>
       )}
 
@@ -249,6 +263,12 @@ export const App = (): JSX.Element => {
                     reward={market.lastReward}
                     expanded={marketOpen}
                     onClick={openMarket}
+                  />
+                )}
+                {background === 'particles' && (
+                  <ParticlesButton
+                    expanded={particlesOpen}
+                    onClick={() => setParticlesOpen(true)}
                   />
                 )}
                 <GithubButton />
@@ -301,6 +321,10 @@ export const App = (): JSX.Element => {
               setSettingsOpen(false);
               openMarket();
             }}
+            onOpenParticles={() => {
+              setSettingsOpen(false);
+              setParticlesOpen(true);
+            }}
             aiHandoffTargets={settings.aiHandoffTargets}
             onAiHandoffTargetsChange={(aiHandoffTargets) =>
               handleSettingsChange({ aiHandoffTargets })
@@ -318,12 +342,22 @@ export const App = (): JSX.Element => {
               account={market.account}
               day={marketDay}
               onBuy={market.buy}
+              onBuyGoldfish={market.buyGoldfish}
               onRelease={market.release}
+              onReleaseGoldfish={market.releaseGoldfish}
               onRestock={() => market.restock(marketDay)}
               onDismissWelcome={market.dismissMarketWelcome}
               onClose={() => setMarketOpen(false)}
             />
           </Suspense>
+        )}
+
+        {particlesOpen && background === 'particles' && (
+          <ParticleSettingsPanel
+            settings={particleSettings}
+            onChange={setParticleSettings}
+            onClose={() => setParticlesOpen(false)}
+          />
         )}
       </main>
     </>
