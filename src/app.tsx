@@ -231,7 +231,7 @@ export const App = (): JSX.Element => {
             <p>Create consistent Git branch names in one quick step.</p>
             <p>
               <strong>'{namingPattern}'</strong> — the practical modern standard used across teams
-              leveraging Jira and Linear.
+              leveraging your project management tools.
             </p>
           </header>
 
