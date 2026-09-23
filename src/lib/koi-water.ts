@@ -83,6 +83,11 @@ const renderCausticSheet = (width: number, height: number): HTMLCanvasElement | 
 export type Water = {
   /** Rasterises the sheet for a new viewport size. */
   resize: (width: number, height: number) => void;
+  /**
+   * Lays something on the bed of the pond — stones, the shadows of lilies —
+   * under the caustics, so the light plays over it as it does over the koi.
+   */
+  setBed: (bed: CanvasImageSource | null) => void;
   /** Lays the water and its drifting caustics down under the shoal. */
   draw: (ctx: CanvasRenderingContext2D, width: number, height: number, elapsedS: number) => void;
 };
@@ -90,10 +95,15 @@ export type Water = {
 /** Builds the pond's water. The caustic sheet is rasterised on the first resize. */
 export const createWater = (): Water => {
   let sheet: HTMLCanvasElement | null = null;
+  let bed: CanvasImageSource | null = null;
 
   return {
     resize: (width, height) => {
       sheet = width > 0 && height > 0 ? renderCausticSheet(width, height) : null;
+    },
+
+    setBed: (next) => {
+      bed = next;
     },
 
     draw: (ctx, width, height, elapsedS) => {
@@ -109,6 +119,10 @@ export const createWater = (): Water => {
       depth.addColorStop(1, DEEP);
       ctx.fillStyle = depth;
       ctx.fillRect(0, 0, width, height);
+
+      if (bed) {
+        ctx.drawImage(bed, 0, 0, width, height);
+      }
 
       if (!sheet) {
         return;

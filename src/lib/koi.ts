@@ -17,6 +17,9 @@ export const SPINE_JOINTS = 12;
 /** The most koi the pond ever holds, at once, regardless of the base fish setting. */
 export const MAX_KOI = 10;
 
+/** The most goldfish the pond holds alongside its koi. */
+export const MAX_GOLDFISH = 6;
+
 /** The narrowest base fish count Settings allows; the pond always shows at least one koi. */
 export const MIN_BASE_FISH = 1;
 

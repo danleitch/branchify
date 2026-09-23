@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 
 type CopyButtonProps = {
   value: string;
+  /** Called once the value is actually on the clipboard. */
+  onCopied?: () => void;
 };
 
-export const CopyButton = ({ value }: CopyButtonProps): JSX.Element => {
+export const CopyButton = ({ value, onCopied }: CopyButtonProps): JSX.Element => {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -24,6 +26,7 @@ export const CopyButton = ({ value }: CopyButtonProps): JSX.Element => {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
+      onCopied?.();
     } catch {
       setCopied(false);
     }

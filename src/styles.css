@@ -525,3 +525,1418 @@ code {
     background: #020617;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Koi market
+   ------------------------------------------------------------------------ */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.coin-amount {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.coin-icon {
+  flex-shrink: 0;
+}
+
+/* The header button: a tancho that flicks its tail when you point at it. */
+.market-action {
+  position: relative;
+  display: inline-flex;
+}
+
+.market-icon {
+  display: inline-block;
+  transform-origin: 70% 50%;
+}
+
+.header-action:hover .market-icon,
+.header-action:focus-visible .market-icon {
+  animation: koi-wiggle 0.7s ease-in-out;
+}
+
+.market-dot {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.35rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 0 2px #0d1117;
+}
+
+.coin-pop {
+  position: absolute;
+  top: -0.2rem;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  color: #fcd679;
+  font-size: 0.8rem;
+  font-weight: 800;
+  pointer-events: none;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  animation: coin-pop 1.6s ease-out forwards;
+}
+
+@keyframes koi-wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-10deg);
+  }
+  55% {
+    transform: rotate(8deg);
+  }
+  80% {
+    transform: rotate(-4deg);
+  }
+}
+
+@keyframes coin-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0.4rem) scale(0.8);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -0.3rem) scale(1.1);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -1.8rem) scale(1);
+  }
+}
+
+/* Four header actions need a little more room than a phone gives the title and
+   three did. Below 480px the page and panel give some padding back and the
+   actions tighten, so everything still fits on one line down to 360px; on
+   anything narrower the actions wrap onto their own row rather than pushing the
+   page sideways. */
+@media (max-width: 480px) {
+  .app-shell {
+    padding: 0.75rem;
+  }
+
+  .panel {
+    padding: 1.1rem;
+  }
+
+  .panel-header-top {
+    flex-wrap: wrap;
+  }
+
+  .panel-header h1 {
+    font-size: 1.6rem;
+  }
+
+  .header-actions {
+    margin-left: auto;
+  }
+
+  .header-action {
+    width: 2.1rem;
+    height: 2.1rem;
+  }
+}
+
+/* The market sits over the pond with a lighter hand than Settings, so a koi
+   bought here can be seen swimming in at the edges. */
+.market-backdrop {
+  background: rgba(2, 6, 23, 0.5);
+  padding-top: 2.5rem;
+}
+
+.market-panel {
+  width: min(62rem, 100%);
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-radius: 18px;
+  background: #0d1117;
+  border: 1px solid rgba(76, 127, 247, 0.3);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  color: #f3f4f6;
+}
+
+.market-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.market-header h2 {
+  margin: 0;
+}
+
+.market-subtitle {
+  margin: 0.2rem 0 0;
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+.market-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.market-balance {
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(242, 182, 50, 0.12);
+  border: 1px solid rgba(242, 182, 50, 0.35);
+  color: #fcd679;
+  font-weight: 700;
+}
+
+/* How the market works: open for a new visitor, one line for everyone else. */
+.market-explainer {
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(20, 83, 76, 0.4), rgba(49, 94, 251, 0.14));
+  border: 1px solid rgba(94, 234, 212, 0.22);
+  color: #d1fae5;
+  font-size: 0.92rem;
+}
+
+.market-explainer summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+}
+
+.market-explainer summary::-webkit-details-marker {
+  display: none;
+}
+
+.market-explainer summary::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+}
+
+.market-explainer[open] summary::before {
+  transform: rotate(45deg);
+}
+
+.market-explainer summary:focus-visible {
+  outline: 2px solid #4c7ff7;
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+.market-explainer > :not(summary) {
+  margin-left: 1rem;
+  margin-right: 1rem;
+}
+
+.market-explainer-welcome {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+.market-explainer ul {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  padding-left: 1.1rem;
+}
+
+.market-explainer li {
+  line-height: 1.5;
+}
+
+.market-explainer .coin-amount {
+  color: #fcd679;
+  font-weight: 700;
+}
+
+.market-explainer > .btn {
+  margin-bottom: 1rem;
+}
+
+.link-button {
+  display: inline;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: #93c5fd;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: #bfdbfe;
+}
+
+/* The tabs on the left, the restock on the right. */
+.market-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.restock-control,
+.restock-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.restock-count {
+  color: #9ca3af;
+  font-size: 0.82rem;
+}
+
+.restock-button,
+.restock-confirm .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.9rem;
+}
+
+.restock-button .coin-amount {
+  color: #fcd679;
+  font-weight: 700;
+}
+
+.restock-confirm span {
+  color: #e5e7eb;
+  font-size: 0.9rem;
+}
+
+.market-guide-toggle[aria-pressed='true'] {
+  color: #93c5fd;
+}
+
+.market-tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  background: #111827;
+  border: 1px solid #1f2937;
+}
+
+.market-tabs button {
+  border: none;
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  background: transparent;
+  color: #9ca3af;
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.market-tabs button:hover {
+  color: #e5e7eb;
+}
+
+.market-tabs button[aria-selected='true'] {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.market-tab-count {
+  margin-left: 0.25rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.16);
+  font-size: 0.78rem;
+}
+
+.market-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 1rem;
+}
+
+.koi-card {
+  --rarity: #9ca3af;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #111827;
+  border: 1px solid #1f2937;
+  transition:
+    transform 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.koi-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--rarity);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+[data-rarity='uncommon'] {
+  --rarity: #34d399;
+}
+
+[data-rarity='rare'] {
+  --rarity: #60a5fa;
+}
+
+[data-rarity='legendary'] {
+  --rarity: #fbbf24;
+}
+
+.koi-card[data-rarity='legendary'] {
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+.koi-card-photo {
+  position: relative;
+}
+
+/* A window onto the pond: the water is painted here, the koi is laid over it. */
+.koi-photo {
+  position: relative;
+  aspect-ratio: 13 / 8;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 30% 25%, rgba(143, 214, 196, 0.16), transparent 45%),
+    radial-gradient(ellipse at 75% 80%, rgba(0, 0, 0, 0.35), transparent 60%),
+    radial-gradient(circle at 45% 40%, #2c5d57, #16302f 75%);
+}
+
+.koi-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: transform 1.2s cubic-bezier(0.25, 0.8, 0.3, 1);
+}
+
+/* Where the live koi can't swim, a hovered photo drifts forward a little instead. */
+.koi-card:hover .koi-photo:not([data-live]) img {
+  transform: translateX(4%) rotate(-1.5deg);
+}
+
+/* The live koi swims over its own photograph, which steps aside while it does. */
+.koi-live {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.koi-photo[data-live] img {
+  visibility: hidden;
+}
+
+.koi-photo[data-state='loading']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.08) 45%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: portrait-shimmer 1.4s linear infinite;
+}
+
+@keyframes portrait-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+.rarity-badge {
+  display: inline-block;
+  padding: 0.12rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rarity, #9ca3af);
+  background: rgba(2, 6, 23, 0.62);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.rarity-badge[data-rarity='uncommon'] {
+  border-color: rgba(52, 211, 153, 0.45);
+}
+
+.rarity-badge[data-rarity='rare'] {
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.rarity-badge[data-rarity='legendary'] {
+  border-color: rgba(251, 191, 36, 0.6);
+  background: linear-gradient(120deg, rgba(120, 72, 6, 0.8), rgba(2, 6, 23, 0.7));
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.35);
+}
+
+.koi-card-badges {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.new-badge {
+  padding: 0.12rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.9);
+  color: #022c22;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.koi-size {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.55);
+  color: #d1d5db;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.koi-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.8rem 0.9rem 0.95rem;
+}
+
+.koi-card-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.koi-card-heading h3 {
+  margin: 0;
+  font-size: 1.12rem;
+}
+
+.koi-name-meaning {
+  color: #6b7280;
+  font-size: 0.82rem;
+  font-weight: 500;
+  font-style: italic;
+}
+
+.koi-price {
+  color: #fcd679;
+  font-weight: 800;
+}
+
+.koi-variety {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.koi-kanji {
+  margin-left: 0.2rem;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.koi-traits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.koi-traits li {
+  padding: 0.08rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  color: #bfdbfe;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: help;
+}
+
+.koi-blurb {
+  flex: 1;
+  margin: 0;
+  color: #9ca3af;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.koi-card .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+  padding: 0.6rem 0.8rem;
+}
+
+.btn-owned,
+.btn-owned:disabled {
+  opacity: 1;
+  cursor: default;
+  background: rgba(52, 211, 153, 0.14);
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  color: #6ee7b7;
+}
+
+.btn-danger {
+  background: #dc2626;
+}
+
+/* A koi that has just swum into the tank sends a ripple across its photo. */
+.koi-card[data-fresh] {
+  border-color: rgba(52, 211, 153, 0.6);
+  animation: koi-card-in 0.55s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.koi-card[data-fresh] .koi-card-photo::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid rgba(167, 243, 208, 0.85);
+  transform: translate(-50%, -50%) scale(0.2);
+  animation: koi-ripple 1.3s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes koi-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem) scale(0.98);
+  }
+}
+
+@keyframes koi-ripple {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(3.2);
+  }
+}
+
+.market-pond {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.market-note {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 0.88rem;
+}
+
+.market-empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 2rem 1rem;
+  border-radius: 12px;
+  border: 1px dashed #334155;
+  color: #9ca3af;
+  text-align: center;
+}
+
+.market-empty p {
+  max-width: 32rem;
+  margin: 0;
+}
+
+.owned-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.owned-koi {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.5rem 0.75rem 0.5rem 0.5rem;
+  border-radius: 12px;
+  background: #111827;
+  border: 1px solid #1f2937;
+}
+
+.owned-koi .koi-photo {
+  border-radius: 8px;
+}
+
+.owned-koi-info {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.owned-koi-info h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.owned-koi-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: #9ca3af;
+  font-size: 0.8rem;
+}
+
+.release-confirm {
+  display: grid;
+  gap: 0.45rem;
+  justify-items: end;
+  max-width: 20rem;
+}
+
+.release-confirm p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #e5e7eb;
+  text-align: right;
+}
+
+.release-confirm .coin-amount {
+  color: #fcd679;
+  font-weight: 700;
+}
+
+.release-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.release-actions .btn {
+  padding: 0.45rem 0.8rem;
+}
+
+.market-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #1f2937;
+  color: #9ca3af;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.market-footer .coin-amount {
+  color: #fcd679;
+  font-weight: 700;
+}
+
+.market-toast-region {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  z-index: 20;
+  width: min(30rem, calc(100% - 2rem));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.market-toast {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: #0f172a;
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  color: #d1fae5;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  animation: toast-in 0.3s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+}
+
+@media (max-width: 560px) {
+  .market-panel {
+    padding: 1rem;
+  }
+
+  .market-toolbar {
+    align-items: stretch;
+  }
+
+  .restock-control,
+  .restock-confirm {
+    width: 100%;
+  }
+
+  .restock-button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .owned-koi {
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+  }
+
+  .owned-koi > .btn,
+  .release-confirm {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    max-width: none;
+  }
+
+  .release-confirm {
+    justify-items: stretch;
+  }
+
+  .release-confirm p {
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header-action:hover .market-icon,
+  .header-action:focus-visible .market-icon,
+  .koi-photo[data-state='loading']::after,
+  .koi-card[data-fresh],
+  .koi-card[data-fresh] .koi-card-photo::after,
+  .market-toast,
+  .market-explainer summary::before {
+    animation: none;
+    transition: none;
+  }
+
+  .coin-pop {
+    display: none;
+  }
+
+  .koi-card,
+  .koi-card:hover,
+  .koi-card:hover .koi-photo:not([data-live]) img {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Koi guide
+   ------------------------------------------------------------------------ */
+
+.koi-guide {
+  display: grid;
+  gap: 1.75rem;
+  color: #d1d5db;
+  line-height: 1.6;
+}
+
+.koi-guide .guide-back {
+  justify-self: start;
+}
+
+.guide-hero {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse at 85% 20%, rgba(143, 214, 196, 0.18), transparent 55%),
+    radial-gradient(circle at 20% 90%, #1f4a45, #122725 80%);
+  border: 1px solid rgba(94, 234, 212, 0.2);
+}
+
+.guide-kicker {
+  margin: 0;
+  color: #5eead4;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.guide-hero h3 {
+  margin: 0;
+  color: #f9fafb;
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  line-height: 1.2;
+}
+
+.guide-lede {
+  max-width: 40rem;
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 1.02rem;
+}
+
+.guide-contents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.guide-contents button {
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(2, 6, 23, 0.4);
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.guide-contents button:hover {
+  border-color: #5eead4;
+  color: #ffffff;
+}
+
+.guide-section {
+  display: grid;
+  gap: 0.75rem;
+  scroll-margin-top: 1rem;
+}
+
+.guide-section > p,
+.guide-group-blurb {
+  max-width: 44rem;
+  margin: 0;
+}
+
+.guide-section h4 {
+  margin: 0;
+  color: #f9fafb;
+  font-size: 1.25rem;
+}
+
+.guide-fact {
+  max-width: 44rem;
+  padding: 0.8rem 1rem;
+  border-left: 3px solid #fbbf24;
+  border-radius: 0 10px 10px 0;
+  background: rgba(251, 191, 36, 0.08);
+  color: #fde68a;
+}
+
+.guide-example {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.guide-example span {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 10px;
+  background: #111827;
+  border: 1px solid #1f2937;
+  color: #f9fafb;
+  font-weight: 700;
+}
+
+.guide-example small {
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.guide-glossary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.guide-glossary div {
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  background: #111827;
+  border: 1px solid #1f2937;
+}
+
+.guide-glossary dt {
+  color: #f9fafb;
+  font-weight: 700;
+}
+
+.guide-glossary dd {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 0.88rem;
+}
+
+.guide-group {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.guide-group-title {
+  margin: 0;
+  color: #e2e8f0;
+  font-size: 1.05rem;
+}
+
+.guide-varieties,
+.guide-traits,
+.guide-liberties {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guide-varieties {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.75rem;
+}
+
+.guide-variety,
+.guide-trait {
+  --rarity: #9ca3af;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #111827;
+  border: 1px solid #1f2937;
+  transition: border-color 0.25s ease;
+}
+
+.guide-variety:hover,
+.guide-trait:hover {
+  border-color: var(--rarity);
+}
+
+.guide-variety-text {
+  display: grid;
+  gap: 0.3rem;
+  justify-items: start;
+  padding: 0.7rem 0.8rem 0.85rem;
+}
+
+.guide-variety h5,
+.guide-trait h5 {
+  margin: 0;
+  color: #f9fafb;
+  font-size: 1rem;
+}
+
+.guide-variety p,
+.guide-trait p {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.guide-variety .guide-meaning {
+  color: #cbd5e1;
+  font-style: italic;
+}
+
+.guide-traits {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0.75rem;
+}
+
+.guide-trait h5,
+.guide-trait p {
+  padding: 0 0.8rem;
+}
+
+.guide-trait h5 {
+  padding-top: 0.7rem;
+}
+
+.guide-trait p {
+  padding-bottom: 0.85rem;
+}
+
+.guide-liberties {
+  display: grid;
+  gap: 0.6rem;
+  max-width: 44rem;
+}
+
+.guide-liberties li {
+  position: relative;
+  padding: 0.7rem 0.9rem 0.7rem 2.4rem;
+  border-radius: 10px;
+  background: #111827;
+  border: 1px solid #1f2937;
+}
+
+.guide-liberties li::before {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.85rem;
+  font-weight: 800;
+}
+
+.guide-liberties li[data-kind='real']::before {
+  content: '✓';
+  color: #34d399;
+}
+
+.guide-liberties li[data-kind='flair']::before {
+  content: '✦';
+  color: #fbbf24;
+}
+
+.guide-liberties strong {
+  color: #f9fafb;
+}
+
+/* ---------------------------------------------------------------------------
+   Particle settings
+   ------------------------------------------------------------------------ */
+
+.particles-icon {
+  display: inline-block;
+  transition: transform 0.4s ease;
+}
+
+.header-action:hover .particles-icon,
+.header-action:focus-visible .particles-icon {
+  transform: rotate(72deg) scale(1.08);
+}
+
+/* Docked beside the page rather than over a dimmed one, so each change can be
+   watched as it lands and the open background stays clickable. */
+.particle-panel {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 5;
+  width: min(22rem, calc(100% - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem 1.1rem 1.1rem;
+  border-radius: 16px;
+  background: rgba(13, 17, 23, 0.92);
+  border: 1px solid rgba(76, 127, 247, 0.3);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(10px);
+  color: #f3f4f6;
+}
+
+.particle-panel h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.particle-field {
+  display: grid;
+  grid-template-columns: 6.75rem minmax(0, 1fr) 3.25rem;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.particle-field-wide {
+  grid-template-columns: 6.75rem minmax(0, 1fr);
+}
+
+.particle-field label {
+  display: block;
+  font-size: 0.88rem;
+  color: #d1d5db;
+}
+
+.particle-field output {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.particle-field select,
+.particle-field input[type='text'] {
+  width: 100%;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.9rem;
+}
+
+.particle-field select {
+  padding-right: 2rem;
+  background-position: right 0.6rem center;
+}
+
+.particle-field input[type='range'] {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  accent-color: #4c7ff7;
+}
+
+.particle-field input[type='color'] {
+  width: 2.75rem;
+  height: 1.75rem;
+  padding: 0.1rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.particle-toggle {
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.particle-field:has(:disabled),
+.particle-toggle:has(:disabled) {
+  opacity: 0.45;
+}
+
+.particle-group {
+  border-top: 1px solid #1f2937;
+  padding-top: 0.45rem;
+}
+
+.particle-group summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.particle-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.particle-group summary::before {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+}
+
+.particle-group[open] summary::before {
+  transform: rotate(45deg);
+}
+
+.particle-group summary:focus-visible {
+  outline: 2px solid #4c7ff7;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.particle-group-body,
+.particle-subfields {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.particle-group-body {
+  padding: 0.45rem 0 0.3rem;
+}
+
+.particle-subfields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+/* On a phone the panel becomes a sheet along the bottom, leaving the top of
+   the page and its particles in view above it. */
+@media (max-width: 560px) {
+  .particle-panel {
+    top: auto;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    width: auto;
+    max-height: 60vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .particles-icon,
+  .particle-group summary::before {
+    transition: none;
+  }
+}
+
+/* Growth, pond value and goldfish in the koi market. */
+
+.koi-growth,
+.goldfish-origin {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 0.8rem;
+}
+
+.goldfish-origin {
+  color: #6b7280;
+}
+
+.goldfish-card,
+[data-rarity='goldfish'] {
+  --rarity: #fb923c;
+}
+
+.rarity-badge[data-rarity='goldfish'] {
+  border-color: rgba(251, 146, 60, 0.55);
+}
+
+.market-goldfish {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.koi-grown {
+  color: #34d399;
+  font-variant-numeric: tabular-nums;
+}
+
+.owned-koi-worth {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: #d1d5db;
+  font-size: 0.85rem;
+}
+
+.koi-gain {
+  color: #34d399;
+  font-size: 0.78rem;
+}
+
+.pond-summary {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(120, 72, 6, 0.35), rgba(17, 24, 39, 0.9));
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.pond-summary-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pond-summary-value h3 {
+  margin: 0;
+  color: #d1d5db;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pond-value-amount {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pond-value-amount .coin-icon {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.pond-summary-growth,
+.pond-summary-count {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 0.85rem;
+}
+
+.pond-summary-growth {
+  color: #a7f3d0;
+}
+
+.market-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}

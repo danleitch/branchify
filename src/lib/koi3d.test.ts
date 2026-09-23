@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { createKoiBrain, pondFor, profileFor, type KoiEntry, type PondIsland } from './koi3d';
+import { ARRIVED_REACH, CURIOUS_GAIN, distance, insidePond } from './koi-attention';
+import {
+  createKoiBrain,
+  exitHeading,
+  hasLeftPond,
+  pondFor,
+  profileFor,
+  type KoiEntry,
+  type KoiFocus,
+  type PondIsland
+} from './koi3d';
 import { hashString } from './koi-roster';
 
 const POND = pondFor(1400, 900, false);
@@ -124,5 +134,115 @@ describe('a koi swimming', () => {
     const { distance } = swim(entry('docs/panel'), 120);
 
     expect(distance).toBeGreaterThan(1000);
+  });
+});
+
+describe('market koi in the pond', () => {
+  const marketEntry = (variety: 'chagoi' | 'tancho', seed: number): KoiEntry => ({
+    key: `market:${seed}`,
+    seed,
+    accent: '#ffffff',
+    genome: { variety, modifiers: [], seed }
+  });
+
+  it('builds a market koi on its variety’s body, not the branch archetype', () => {
+    expect(profileFor(marketEntry('chagoi', 3)).framework).toBe('react');
+    expect(profileFor(marketEntry('chagoi', 4)).framework).toBe('react');
+  });
+});
+
+describe('arrivals and departures', () => {
+  it('starts an arriving koi just out of sight, and swims it into view', () => {
+    const { motion } = createKoiBrain(entry('feat/new'), POND, () => null, { arriving: true });
+    const start = motion.state.position;
+
+    expect(start.x < 0 || start.x > POND.width).toBe(true);
+
+    for (let frame = 0; frame < 6 * 60; frame += 1) {
+      motion.advance(1 / 60);
+    }
+
+    const { x, y } = motion.state.position;
+    expect(x).toBeGreaterThan(0);
+    expect(x).toBeLessThan(POND.width);
+    expect(y).toBeGreaterThan(0);
+    expect(y).toBeLessThan(POND.height);
+  });
+
+  it('swims a departing koi out through the nearer side until it has left the pond', () => {
+    let exit: { heading: number; secondsLeft: number } | null = null;
+    const { motion } = createKoiBrain(entry('feat/old'), POND, () => ISLAND, {
+      readExit: () => exit
+    });
+
+    for (let frame = 0; frame < 60; frame += 1) {
+      motion.advance(1 / 60);
+    }
+
+    exit = { heading: exitHeading(motion.state.position, POND.width), secondsLeft: 9 };
+    let seconds = 0;
+
+    while (!hasLeftPond(motion.state.position, motion.state.length, POND) && seconds < 20) {
+      motion.advance(1 / 60);
+      seconds += 1 / 60;
+    }
+
+    expect(hasLeftPond(motion.state.position, motion.state.length, POND)).toBe(true);
+    expect(seconds).toBeLessThan(15);
+  });
+
+  it('heads for whichever side is nearer', () => {
+    expect(exitHeading({ x: 100 }, 1000)).toBe(Math.PI);
+    expect(exitHeading({ x: 900 }, 1000)).toBe(0);
+  });
+
+  it('only counts a koi as gone once it is clear of every edge', () => {
+    expect(hasLeftPond({ x: 500, y: 400 }, 100, POND)).toBe(false);
+    expect(hasLeftPond({ x: -10, y: 400 }, 100, POND)).toBe(false);
+    expect(hasLeftPond({ x: -130, y: 400 }, 100, POND)).toBe(true);
+    expect(hasLeftPond({ x: 500, y: POND.height + 130 }, 100, POND)).toBe(true);
+  });
+});
+
+describe('curiosity', () => {
+  /** Swims a koi with a point of interest behind it, reporting how close it got and how fast it went. */
+  const investigate = (branch: string): { closest: number; fastest: number } => {
+    let focus: KoiFocus | null = null;
+    const { motion } = createKoiBrain(entry(branch), POND, () => null, {
+      readFocus: () => focus
+    });
+
+    for (let frame = 0; frame < 120; frame += 1) {
+      motion.advance(1 / 60);
+    }
+
+    const { position, heading } = motion.state;
+    const point = insidePond(
+      { x: position.x - Math.cos(heading) * 420, y: position.y - Math.sin(heading) * 420 },
+      POND,
+      POND.fishLength
+    );
+    focus = { point, gain: CURIOUS_GAIN };
+    let closest = Infinity;
+    let fastest = 0;
+
+    for (let frame = 0; frame < 20 * 60; frame += 1) {
+      motion.advance(1 / 60);
+      closest = Math.min(closest, distance(motion.state.position, point));
+      fastest = Math.max(fastest, motion.state.speed);
+    }
+
+    return { closest, fastest };
+  };
+
+  it('turns around and swims over to see a touch on the water behind it', () => {
+    for (const branch of ['feat/look', 'fix/peek', 'chore/nose']) {
+      expect(investigate(branch).closest, branch).toBeLessThan(ARRIVED_REACH * POND.fishLength);
+    }
+  });
+
+  it('comes over at its own easy pace, never at a dash', () => {
+    // A bolting koi reaches nearly two body lengths a second; a curious one cruises.
+    expect(investigate('feat/calm').fastest).toBeLessThan(1.2 * POND.fishLength);
   });
 });

@@ -20,7 +20,14 @@
 import type { RecentBranch } from '../types';
 import { WATER_TINT, dimHex, hslToHex, mixHex, withAlpha } from './koi-colour';
 import type { KoiPatternName } from './koi-pattern';
-import { DEFAULT_BASE_FISH, MAX_KOI } from './koi';
+import { growthOf, type FishSpecies, type Stocked } from './fish-growth';
+import { DEFAULT_BASE_FISH, MAX_GOLDFISH, MAX_KOI } from './koi';
+import type { OwnedGoldfish, OwnedKoi } from './koi-account';
+import { resolveLook, type FishGenome } from './koi-genome';
+import { hashString } from './seeded-random';
+
+// Re-exported so existing callers keep importing the seeded helpers from here.
+export { createRandom, hashString } from './seeded-random';
 
 /** The white nishikigoi ground most varieties are written on. */
 const WHITE_GROUND = '#f6f1e9';
@@ -54,33 +61,13 @@ export type KoiDescriptor = {
   key: string;
   /** Drives every deterministic number about this fish. */
   seed: number;
-  /** The branch this koi stands for, or null for a resident. */
+  /** The branch this koi stands for, a market koi's name, or null for a resident. */
   label: string | null;
   palette: KoiPalette;
-};
-
-/** A stable 32-bit hash, so the same branch name always seeds the same koi. */
-export const hashString = (value: string): number => {
-  let hash = 2166136261;
-
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-
-  return hash >>> 0;
-};
-
-/** A small deterministic generator, so traits are stable per seed. */
-export const createRandom = (seed: number): (() => number) => {
-  let state = seed >>> 0;
-
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let drawn = Math.imul(state ^ (state >>> 15), 1 | state);
-    drawn = (drawn + Math.imul(drawn ^ (drawn >>> 7), 61 | drawn)) ^ drawn;
-    return ((drawn ^ (drawn >>> 14)) >>> 0) / 4294967296;
-  };
+  /** Present for a fish bought at the market, whose look comes from its variety. */
+  genome?: FishGenome;
+  /** How long a market fish has grown by now, in centimetres. */
+  lengthCm?: number;
 };
 
 /**
@@ -162,13 +149,43 @@ export const sinkPalette = (palette: KoiPalette, depth: number): KoiPalette => {
  * A branch always outranks a resident — raising the base fish count only
  * grows the pond when there aren't enough branches to fill it on their own.
  *
+ * Koi bought at the market outrank both: once the visitor owns one, the pond
+ * is theirs, and the branch koi and residents rest until every market koi has
+ * been released again.
+ *
+ * Goldfish are company, not replacements. They swim with whichever koi are in
+ * the pond, branch koi or market koi, and have their own room.
+ *
  * @param baseFishCount - The floor Settings has chosen; clamped into range so
  * a corrupt or future stored value can't grow the pond past its own cap.
+ * @param now - When the pond is being stocked, which sets how far each market
+ * fish has grown.
  */
 export const buildKoiRoster = (
   recentBranches: readonly RecentBranch[],
-  baseFishCount: number = DEFAULT_BASE_FISH
+  baseFishCount: number = DEFAULT_BASE_FISH,
+  ownedKoi: readonly OwnedKoi[] = [],
+  ownedGoldfish: readonly OwnedGoldfish[] = [],
+  now: Date = new Date()
 ): KoiDescriptor[] => {
+  const marketFish = (
+    species: FishSpecies,
+    fish: Stocked & { id: string; name: string; genome: FishGenome }
+  ): KoiDescriptor => ({
+    // Prefixed so a market fish can never share a key with a branch of the same name.
+    key: `${species === 'koi' ? 'market' : 'goldfish'}:${fish.id}`,
+    seed: fish.genome.seed,
+    label: fish.name,
+    palette: resolveLook(fish.genome).flat,
+    genome: fish.genome,
+    lengthCm: growthOf(species, fish, now).lengthCm
+  });
+  const goldfish = ownedGoldfish.slice(0, MAX_GOLDFISH).map((fish) => marketFish('goldfish', fish));
+
+  if (ownedKoi.length > 0) {
+    return [...ownedKoi.slice(0, MAX_KOI).map((koi) => marketFish('koi', koi)), ...goldfish];
+  }
+
   const base = Math.min(MAX_KOI, Math.max(0, Math.round(baseFishCount)));
   const roster = recentBranches.slice(0, MAX_KOI).map((item): KoiDescriptor => {
     const seed = hashString(item.value);
@@ -187,5 +204,5 @@ export const buildKoiRoster = (
     roster.push({ key, seed, label: null, palette: residentPalette(seed) });
   }
 
-  return roster;
+  return [...roster, ...goldfish];
 };
