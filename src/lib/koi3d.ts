@@ -40,6 +40,8 @@ import {
 } from '../vendor/koi-pond/three/pond-view';
 import type { PondView } from '../vendor/koi-pond/three/pond-view';
 import { createLighting } from '../vendor/koi-pond/three/scene';
+import { createGenomeKoi } from './koi-body';
+import { koiBuildFor, type KoiGenome } from './koi-genome';
 
 /** A rectangle the koi will not swim under, in CSS pixels. */
 export type PondIsland = { x: number; y: number; width: number; height: number };
@@ -52,6 +54,8 @@ export type KoiEntry = {
   seed: number;
   /** The branch's own colour, worn as the dominant marking. */
   accent: string;
+  /** A market koi's genome, which dresses it as its variety instead of in `accent`. */
+  genome?: KoiGenome;
 };
 
 export type PondStage = {
@@ -59,7 +63,12 @@ export type PondStage = {
   draw: (dt: number) => void;
   setSize: (width: number, height: number) => void;
   setIsland: (island: PondIsland | null) => void;
-  /** Adds and removes koi in place; the ones that stay keep swimming. */
+  /**
+   * Adds and removes koi in place; the ones that stay keep swimming.
+   *
+   * After the first roster, newcomers swim in from the edge of the pond and
+   * leavers swim out of it, rather than popping in and out of existence.
+   */
   setRoster: (entries: readonly KoiEntry[]) => void;
   dispose: () => void;
 };
@@ -117,8 +126,17 @@ export const pondFor = (width: number, height: number, reducedMotion: boolean): 
   };
 };
 
-/** Dresses one of the library's koi in a branch's colour. */
+/**
+ * Dresses one of the library's koi in a branch's colour.
+ *
+ * A market koi keeps the library's palette untouched here: its skin comes from
+ * its variety when the body is built, and the brain never reads colours.
+ */
 export const profileFor = (entry: KoiEntry): KoiProfile => {
+  if (entry.genome) {
+    return koiProfile(koiBuildFor(entry.genome), entry.seed);
+  }
+
   const build = BUILDS[entry.seed % BUILDS.length]!;
   const profile = koiProfile(build, entry.seed);
   const pattern = PATTERNS[Math.floor(entry.seed / BUILDS.length) % PATTERNS.length]!;
@@ -145,7 +163,44 @@ type Swimmer = {
   bodyPx: number;
   lastHeading: number | null;
   lastSpeed: number;
+  /** Where a koi that has left the roster is swimming off to; null while it belongs here. */
+  exit: KoiExit;
 };
+
+/** A departing koi's way out: the heading to hold, and how long it has to get there. */
+type KoiExit = { heading: number; secondsLeft: number } | null;
+
+/** How hard a departing koi turns for the edge; brisker than a cruise, gentler than a bolt. */
+const EXIT_GAIN = 1.4;
+
+/** The longest a departing koi is given before it is lifted out wherever it is. */
+const EXIT_TIMEOUT_S = 9;
+
+/** How far past the edge a departing koi swims, in body lengths, before it is gone. */
+const EXIT_CLEARANCE = 1.2;
+
+/** How far off-screen an arriving koi starts, as a fraction of the nominal fish length. */
+const ARRIVAL_OFFSET = 0.6;
+
+/** Whether a departing koi is far enough past every edge to vanish without being seen to. */
+export const hasLeftPond = (
+  position: { x: number; y: number },
+  length: number,
+  pond: { width: number; height: number }
+): boolean => {
+  const clear = length * EXIT_CLEARANCE;
+
+  return (
+    position.x < -clear ||
+    position.y < -clear ||
+    position.x > pond.width + clear ||
+    position.y > pond.height + clear
+  );
+};
+
+/** The heading straight out through the nearer side of the pond. */
+export const exitHeading = (position: { x: number }, width: number): number =>
+  position.x < width / 2 ? Math.PI : 0;
 
 /**
  * Leans a koi's desire away from the panel.
@@ -198,29 +253,56 @@ export const leanOffIsland = (
 export const createKoiBrain = (
   entry: KoiEntry,
   pond: PondEnvironment,
-  readIsland: () => PondIsland | null
+  readIsland: () => PondIsland | null,
+  {
+    arriving = false,
+    readExit = () => null
+  }: {
+    /** Start just off-screen, facing in, rather than already in the water. */
+    arriving?: boolean;
+    /** The way out, once the koi has been asked to leave. */
+    readExit?: () => KoiExit;
+  } = {}
 ): { profile: KoiProfile; motion: KoiMotion } => {
   const profile = profileFor(entry);
   // Start beside the panel rather than under it; steering would clear a koi
   // out eventually, but "eventually" is a long look at an empty pond.
-  const side = entry.seed % 2 === 0 ? 0.12 : 0.88;
+  const left = entry.seed % 2 === 0;
+  const y = pond.height * (0.2 + ((entry.seed >>> 3) % 60) / 100);
+  // An arrival waits just past the nearer edge, where the pond's own margin
+  // still counts as water, facing in with a little angle so it swims in on a
+  // slant rather than square to the screen.
+  const tilt = (((entry.seed >>> 5) % 50) / 100 - 0.25) * Math.PI;
+  const offset = pond.fishLength * ARRIVAL_OFFSET;
+  const start = arriving
+    ? {
+        position: { x: left ? -offset : pond.width + offset, y },
+        heading: (left ? 0 : Math.PI) + tilt
+      }
+    : {
+        position: { x: pond.width * (left ? 0.12 : 0.88), y },
+        heading: (entry.seed % 360) * (Math.PI / 180)
+      };
 
   return {
     profile,
     motion: createKoiMotion(
+      { profile, pond, ...start, depth: entry.seed % DEPTH_LEVELS },
       {
-        profile,
-        pond,
-        position: {
-          x: pond.width * side,
-          y: pond.height * (0.2 + ((entry.seed >>> 3) % 60) / 100)
-        },
-        heading: (entry.seed % 360) * (Math.PI / 180),
-        depth: entry.seed % DEPTH_LEVELS
-      },
-      {
-        desire: (desire, context) =>
-          leanOffIsland(desire, context, readIsland, pond.fishLength * profile.build.lengthScale)
+        desire: (desire, context) => {
+          const exit = readExit();
+
+          // Leaving outranks everything, the panel included: a koi on its way
+          // out should not be turned back in by the shore it is crossing.
+          return exit
+            ? { heading: exit.heading, gain: EXIT_GAIN, kind: 'travel' }
+            : leanOffIsland(
+                desire,
+                context,
+                readIsland,
+                pond.fishLength * profile.build.lengthScale
+              );
+        }
       }
     )
   };
@@ -243,38 +325,67 @@ export const createPondStage = (canvas: HTMLCanvasElement, reducedMotion: boolea
   const swimmers = new Map<string, Swimmer>();
 
   const readIsland = (): PondIsland | null => island;
+  // The first roster is the pond as the visitor finds it; only later changes
+  // are arrivals and departures worth swimming in and out.
+  let settled = false;
 
-  const spawn = (entry: KoiEntry): Swimmer => {
-    const { profile, motion } = createKoiBrain(entry, pond, readIsland);
-    const koi = createKoi({
-      seed: entry.seed,
-      physical: profile.phenotype,
-      appearance: {
-        pattern: profile.palette.pattern,
-        base: profile.palette.body,
-        primary: profile.palette.marking,
-        secondary: profile.palette.shade,
-        accent: profile.palette.accent
-      },
-      trim: profile.trim
+  const spawn = (entry: KoiEntry, arriving: boolean): Swimmer => {
+    // The swimmer is referenced by its own brain's exit hook, so it exists
+    // before the brain does and is filled in straight after.
+    const swimmer = { exit: null } as Swimmer;
+    const { profile, motion } = createKoiBrain(entry, pond, readIsland, {
+      arriving,
+      readExit: () => swimmer.exit
     });
+    const koi = entry.genome
+      ? createGenomeKoi(entry.genome, profile.phenotype, profile.trim)
+      : createKoi({
+          seed: entry.seed,
+          physical: profile.phenotype,
+          appearance: {
+            pattern: profile.palette.pattern,
+            base: profile.palette.body,
+            primary: profile.palette.marking,
+            secondary: profile.palette.shade,
+            accent: profile.palette.accent
+          },
+          trim: profile.trim
+        });
     koi.mount(scene);
 
-    return {
+    return Object.assign(swimmer, {
       entry,
       koi,
       motion,
       bodyPx: pxPerUnit(pond.fishLength) * profile.build.lengthScale,
       lastHeading: null,
       lastSpeed: 0
-    };
+    });
+  };
+
+  const remove = (key: string, swimmer: Swimmer): void => {
+    swimmer.koi.unmount();
+    swimmer.koi.dispose();
+    swimmers.delete(key);
   };
 
   return {
     draw(dt) {
       const seconds = dt > 0 ? dt : 1e-6;
 
-      for (const swimmer of swimmers.values()) {
+      for (const [key, swimmer] of swimmers) {
+        if (swimmer.exit) {
+          swimmer.exit.secondsLeft -= dt;
+
+          if (
+            swimmer.exit.secondsLeft <= 0 ||
+            hasLeftPond(swimmer.motion.state.position, swimmer.motion.state.length, pond)
+          ) {
+            remove(key, swimmer);
+            continue;
+          }
+        }
+
         swimmer.motion.advance(dt);
 
         const { state } = swimmer.motion;
@@ -318,20 +429,31 @@ export const createPondStage = (canvas: HTMLCanvasElement, reducedMotion: boolea
 
     setRoster(entries) {
       const wanted = new Set(entries.map((entry) => entry.key));
+      // Reduced motion draws a still pond, where a koi swimming off would
+      // never get anywhere; there, the roster simply changes.
+      const animate = settled && !reducedMotion;
 
       for (const [key, swimmer] of swimmers) {
-        if (!wanted.has(key)) {
-          swimmer.koi.unmount();
-          swimmer.koi.dispose();
-          swimmers.delete(key);
+        if (wanted.has(key)) {
+          // Asked back before it made it out: it turns around and stays.
+          swimmer.exit = null;
+        } else if (!animate) {
+          remove(key, swimmer);
+        } else if (!swimmer.exit) {
+          swimmer.exit = {
+            heading: exitHeading(swimmer.motion.state.position, pond.width),
+            secondsLeft: EXIT_TIMEOUT_S
+          };
         }
       }
 
       for (const entry of entries) {
         if (!swimmers.has(entry.key)) {
-          swimmers.set(entry.key, spawn(entry));
+          swimmers.set(entry.key, spawn(entry, animate));
         }
       }
+
+      settled = true;
     },
 
     dispose() {

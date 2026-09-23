@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from './app';
 
@@ -484,6 +484,136 @@ describe('App', () => {
 
       expect(within(dialog).getByRole('combobox', { name: 'Fish always in the pond' })).toHaveValue(
         '2'
+      );
+    });
+  });
+
+  describe('koi market', () => {
+    const marketButton = (): HTMLElement => screen.getByRole('button', { name: /^Koi market/ });
+
+    const openSettings = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
+      await user.click(screen.getByRole('button', { name: 'Settings' }));
+      return screen.getByRole('dialog', { name: 'Settings' });
+    };
+
+    const openMarket = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
+      await user.click(marketButton());
+      const dialog = await screen.findByRole('dialog', { name: 'Koi Market' });
+      // Portraits resolve asynchronously; let them land before the test moves on.
+      await waitFor(() =>
+        expect(dialog.querySelector('.koi-photo[data-state="loading"]')).toBeNull()
+      );
+      return dialog;
+    };
+
+    it('sits in the header only while the koi pond is the background', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      expect(marketButton()).toBeInTheDocument();
+
+      const dialog = await openSettings(user);
+      await user.click(within(dialog).getByRole('radio', { name: 'Particles' }));
+
+      expect(screen.queryByRole('button', { name: /^Koi market/ })).not.toBeInTheDocument();
+    });
+
+    it('opens a new visitor’s account with the welcome coins', () => {
+      render(<App />);
+
+      expect(marketButton()).toHaveAccessibleName('Koi market, 100 coins, new koi today');
+    });
+
+    it('pays for a new branch the first time it is copied, and only the first time', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      await fillForm(user, { description: 'Add koi market' });
+      await user.click(screen.getAllByRole('button', { name: 'Copy' })[0]!);
+      expect(marketButton()).toHaveAccessibleName(/125 coins/);
+
+      await user.click(screen.getAllByRole('button', { name: /Cop/ })[1]!);
+      expect(marketButton()).toHaveAccessibleName(/125 coins/);
+    });
+
+    it('pays for a branch saved to the recent list, without paying again on copy', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      await fillForm(user, { description: 'Broken login' });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTOSAVE_IDLE_MS);
+      });
+      expect(marketButton()).toHaveAccessibleName(/125 coins/);
+
+      await user.click(screen.getAllByRole('button', { name: 'Copy' })[0]!);
+      expect(marketButton()).toHaveAccessibleName(/125 coins/);
+    });
+
+    it('clears the new-stock dot once today’s tank has been seen', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      await openMarket(user);
+      await user.keyboard('{Escape}');
+
+      expect(marketButton()).toHaveAccessibleName('Koi market, 100 coins');
+      expect(marketButton()).toHaveFocus();
+    });
+
+    it('buys a koi into the pond, and Settings explains the branch koi are resting', async () => {
+      window.localStorage.setItem(
+        'branchify-koi-market',
+        JSON.stringify({ coins: 5000, rewarded: [], owned: [] })
+      );
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openMarket(user);
+      await user.click(within(dialog).getAllByRole('button', { name: /^Buy / })[0]!);
+
+      expect(within(dialog).getByRole('tab', { name: /Your pond/ })).toHaveTextContent('1/10');
+
+      await user.click(within(dialog).getByRole('button', { name: 'Close koi market' }));
+      const settings = await openSettings(user);
+
+      expect(
+        within(settings).getByRole('combobox', { name: 'Fish always in the pond' })
+      ).toBeDisabled();
+      expect(
+        within(settings).getByText(/Your market koi has the pond to itself/)
+      ).toBeInTheDocument();
+    });
+
+    it('keeps bought koi across a remount', async () => {
+      window.localStorage.setItem(
+        'branchify-koi-market',
+        JSON.stringify({ coins: 5000, rewarded: [], owned: [] })
+      );
+      const user = userEvent.setup({ delay: null });
+      const { unmount } = render(<App />);
+
+      const dialog = await openMarket(user);
+      await user.click(within(dialog).getAllByRole('button', { name: /^Buy / })[0]!);
+      unmount();
+
+      render(<App />);
+      const reopened = await openMarket(user);
+
+      expect(within(reopened).getByRole('tab', { name: /Your pond/ })).toHaveTextContent('1/10');
+    });
+
+    it('opens the market from Settings', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const settings = await openSettings(user);
+      await user.click(within(settings).getByRole('button', { name: 'Open the koi market' }));
+
+      expect(await screen.findByRole('dialog', { name: 'Koi Market' })).toBeInTheDocument();
+      expect(screen.queryByRole('dialog', { name: 'Settings' })).not.toBeInTheDocument();
+      await waitFor(() =>
+        expect(document.querySelector('.koi-photo[data-state="loading"]')).toBeNull()
       );
     });
   });

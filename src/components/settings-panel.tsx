@@ -25,6 +25,9 @@ type SettingsPanelProps = {
   /** How many koi swim at minimum; more join as branches are saved, up to the pond's cap. */
   baseFishCount: number;
   onBaseFishCountChange: (count: number) => void;
+  /** How many market koi the visitor owns; while there are any, they are the whole pond. */
+  marketKoiCount?: number;
+  onOpenMarket?: () => void;
   aiHandoffTargets: AiProvider[];
   onAiHandoffTargetsChange: (targets: AiProvider[]) => void;
   onAddType: (type: string) => void;
@@ -39,6 +42,8 @@ export const SettingsPanel = ({
   onBackgroundChange,
   baseFishCount,
   onBaseFishCountChange,
+  marketKoiCount = 0,
+  onOpenMarket,
   aiHandoffTargets,
   onAiHandoffTargetsChange,
   onAddType,
@@ -201,7 +206,8 @@ export const SettingsPanel = ({
             </label>
           ))}
           <p className="settings-hint">
-            The koi pond swims one fish per recent branch, each in its own colour.
+            The koi pond swims one fish per recent branch, each in its own colour, or the koi you
+            buy at the market.
           </p>
 
           {background === 'koi' && (
@@ -210,6 +216,7 @@ export const SettingsPanel = ({
                 Fish always in the pond
                 <select
                   value={baseFishCount}
+                  disabled={marketKoiCount > 0}
                   onChange={(event) => onBaseFishCountChange(Number(event.target.value))}
                 >
                   {BASE_FISH_OPTIONS.map((count) => (
@@ -220,9 +227,17 @@ export const SettingsPanel = ({
                 </select>
               </label>
               <p className="settings-hint">
-                The pond never drops below this many. Recent branches fill in past it, up to{' '}
-                {MAX_BASE_FISH} at once.
+                {marketKoiCount === 1
+                  ? 'Your market koi has the pond to itself, so branch koi and residents are resting until you release it.'
+                  : marketKoiCount > 1
+                    ? `Your ${marketKoiCount} market koi fill the pond, so branch koi and residents are resting until you release them.`
+                    : `The pond never drops below this many. Recent branches fill in past it, up to ${MAX_BASE_FISH} at once.`}
               </p>
+              {onOpenMarket && (
+                <button type="button" className="btn btn-secondary" onClick={onOpenMarket}>
+                  Open the koi market
+                </button>
+              )}
             </>
           )}
         </fieldset>

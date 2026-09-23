@@ -20,6 +20,7 @@ and you're free to spin up your own the same way (see
 - Persists your latest values and recent branches in `localStorage`
 - Fully static frontend output (`dist/`) with no backend runtime
 - Mobile-friendly, minimal UI
+- A living koi pond behind the form, with a daily koi market you stock by making branches
 
 ## Branch Naming Formula
 
@@ -75,6 +76,52 @@ back to `feat: Add user authentication.`
 
 All three outputs are one-click copyable for quick pasting into your terminal or PR form.
 
+## Koi Pond & Market
+
+The default background is a 3D koi pond (three.js, with a 2D fallback when WebGL
+isn't available). Out of the box, each recent branch swims as its own koi, and
+a few resident koi keep the pond occupied. You set how many residents there are
+under **Settings → Fish always in the pond**.
+
+### Real varieties
+
+The market sells real nishikigoi varieties, from plain self-coloured fish to
+patterned ones. Each variety is written as a recipe that says where its colour
+sits:
+
+- **Self-coloured:** Benigoi (red), Orenji Ogon (metallic orange), Yamabuki
+  Ogon (gold), Platinum Ogon, Kigoi, Chagoi, Soragoi, Karasugoi, Aka Matsuba
+- **Patterned:** Kohaku, Tancho, Taisho Sanke, Showa, Shiro Bekko, the three
+  Utsuri, Asagi, Goshiki, Ochiba Shigure
+- **Metallic and scaleless:** Kujaku, Hariwake, Shusui, Kumonryu, Beni
+  Kumonryu, Kin Kikokuryu, and the rare Midorigoi
+
+A fish can also be born with a trait: **Gin Rin** (sparkling scales),
+**Doitsu** (scaleless) or **Butterfly** (long, flowing fins). Traits raise its
+rarity and its price. A fish's genome is just its variety, traits and seed, so
+the fish in a listing's photo is exactly the fish that swims in your pond.
+
+### The market
+
+With the koi pond selected, a koi button appears in the header next to the
+GitHub icon:
+
+- **Daily stock.** The market lists six koi a day, seeded by the date, so
+  everyone sees the same fish on the same day. It restocks at local midnight.
+  Every day includes at least one self-coloured koi and one patterned one.
+- **Coins come from branching.** The first time a new branch name is copied
+  or saved to your recent list, it earns 25 coins, up to 8 branches a day. New
+  visitors start with 100 coins, plus 25 for each branch already in their
+  recent list.
+- **Your pond.** Once you own a market koi, market koi fill the whole pond and
+  the branch koi and residents rest. The pond holds up to 10 koi. Releasing a
+  koi pays back half its price. Release them all and the branch koi return.
+- **Portraits.** The fish are photographed with the same renderer as the pond,
+  and the koi under your pointer comes to life and swims in place.
+
+There is no payment gateway and no server. Coins and koi live in `localStorage`
+under `branchify-koi-market`.
+
 ## Tech Stack
 
 - [Vite](https://vite.dev/) (build + dev server)
@@ -96,11 +143,22 @@ src/
     recent-branches.tsx       # Recently generated branches list
     copy-button.tsx           # Copy-to-clipboard button with feedback
     particles-background.tsx  # Animated background
+    koi3d-background.tsx      # The 3D koi pond (falls back to koi-background.tsx)
+    koi-market.tsx            # The market dialog: today's koi and your pond
+    koi-market-button.tsx     # Header button, new-stock dot and coin pop
   hooks/
     use-recent-branches.ts    # Recent-branch state + persistence
+    use-koi-account.ts        # Coins, owned koi, and the market day
   lib/
     branch-utils.ts           # Pure branch/PR-title formatting logic
     storage.ts                # Safe localStorage helpers + parsing
+    koi-varieties.ts          # The nishikigoi catalogue, as pattern recipes
+    koi-genome.ts             # Variety + traits + seed → a koi's exact look
+    koi-market.ts             # The daily stock, names and prices
+    koi-account.ts            # Earning, buying and releasing, as pure functions
+    koi-portrait.ts           # Photographs koi for the market's cards
+    koi3d.ts                  # The pond stage: arrivals, departures, the panel
+  vendor/koi-pond/            # The hyperfrontend koi, untouched (see its README)
 ```
 
 Presentation lives in `components/`, reusable stateful behaviour in `hooks/`,

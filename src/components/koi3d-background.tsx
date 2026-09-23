@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPondStage, type KoiEntry, type PondStage } from '../lib/koi3d';
+import type { OwnedKoi } from '../lib/koi-account';
 import { buildKoiRoster } from '../lib/koi-roster';
 import { createWater } from '../lib/koi-water';
 import type { RecentBranch } from '../types';
@@ -9,6 +10,8 @@ type Koi3dBackgroundProps = {
   recentBranches: readonly RecentBranch[];
   /** The floor on how many koi swim; branches fill in before residents do, up to MAX_KOI. */
   baseFishCount?: number;
+  /** Koi bought at the market; when there are any, they are the whole pond. */
+  ownedKoi?: readonly OwnedKoi[];
   /** The panel, which the koi lean away from so they stay in view around it. */
   avoidRef?: RefObject<HTMLElement>;
 };
@@ -27,23 +30,27 @@ const prefersReducedMotion = (): boolean =>
 export const Koi3dBackground = ({
   recentBranches,
   baseFishCount,
+  ownedKoi,
   avoidRef
 }: Koi3dBackgroundProps): JSX.Element => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const waterRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<PondStage | null>(null);
+  // A reduced-motion pond is drawn once and left; a roster change redraws it.
+  const redrawRef = useRef<(() => void) | null>(null);
   const [unavailable, setUnavailable] = useState(false);
 
   // The same roster the 2D pond swims, so who is in the water and what colour
   // they wear is decided in one place whichever renderer draws them.
   const entries = useMemo<KoiEntry[]>(
     () =>
-      buildKoiRoster(recentBranches, baseFishCount).map((descriptor) => ({
+      buildKoiRoster(recentBranches, baseFishCount, ownedKoi).map((descriptor) => ({
         key: descriptor.key,
         seed: descriptor.seed,
-        accent: descriptor.palette.marking
+        accent: descriptor.palette.marking,
+        genome: descriptor.genome
       })),
-    [recentBranches, baseFishCount]
+    [recentBranches, baseFishCount, ownedKoi]
   );
 
   const entriesRef = useRef(entries);
@@ -129,15 +136,20 @@ export const Koi3dBackground = ({
 
     if (reducedMotion) {
       // One settled pond, drawn once: no loop, no repaints, no battery.
-      for (let index = 0; index < SETTLE_STEPS; index += 1) {
-        stage.draw(SETTLE_STEP_S);
-      }
+      const settle = (): void => {
+        for (let index = 0; index < SETTLE_STEPS; index += 1) {
+          stage.draw(SETTLE_STEP_S);
+        }
 
-      drawWater(SETTLE_STEPS * SETTLE_STEP_S);
+        drawWater(SETTLE_STEPS * SETTLE_STEP_S);
+      };
 
+      settle();
+      redrawRef.current = settle;
       window.addEventListener('resize', resize);
 
       return () => {
+        redrawRef.current = null;
         window.removeEventListener('resize', resize);
         observer?.disconnect();
         stage.dispose();
@@ -190,6 +202,7 @@ export const Koi3dBackground = ({
   // Branches coming and going must not restart the loop or move the other koi.
   useEffect(() => {
     stageRef.current?.setRoster(entries);
+    redrawRef.current?.();
   }, [entries]);
 
   if (unavailable) {
@@ -197,6 +210,7 @@ export const Koi3dBackground = ({
       <KoiBackground
         recentBranches={recentBranches}
         baseFishCount={baseFishCount}
+        ownedKoi={ownedKoi}
         avoidRef={avoidRef}
       />
     );

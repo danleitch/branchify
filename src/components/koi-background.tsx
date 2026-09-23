@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useRef, type RefObject } from 'react';
 import { drawKoi } from '../lib/koi-draw';
 import { reconcilePond, stepSwimmer, type PondBounds, type Swimmer } from '../lib/koi-pond';
+import type { OwnedKoi } from '../lib/koi-account';
 import { buildKoiRoster } from '../lib/koi-roster';
 import { createWater } from '../lib/koi-water';
 import type { RecentBranch } from '../types';
@@ -9,6 +10,8 @@ type KoiBackgroundProps = {
   recentBranches: readonly RecentBranch[];
   /** The floor on how many koi swim; branches fill in before residents do, up to MAX_KOI. */
   baseFishCount?: number;
+  /** Koi bought at the market; when there are any, they are the whole pond. */
+  ownedKoi?: readonly OwnedKoi[];
   /** The panel, which the koi treat as an island so they stay in view around it. */
   avoidRef?: RefObject<HTMLElement>;
 };
@@ -27,14 +30,15 @@ const prefersReducedMotion = (): boolean =>
 const KoiBackgroundInner = ({
   recentBranches,
   baseFishCount,
+  ownedKoi,
   avoidRef
 }: KoiBackgroundProps): JSX.Element => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const swimmersRef = useRef<Swimmer[]>([]);
   const boundsRef = useRef<PondBounds>({ width: 0, height: 0 });
   const roster = useMemo(
-    () => buildKoiRoster(recentBranches, baseFishCount),
-    [recentBranches, baseFishCount]
+    () => buildKoiRoster(recentBranches, baseFishCount, ownedKoi),
+    [recentBranches, baseFishCount, ownedKoi]
   );
   const avoidElementRef = useRef(avoidRef);
   avoidElementRef.current = avoidRef;

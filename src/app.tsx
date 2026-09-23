@@ -2,10 +2,12 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { BranchForm } from './components/branch-form';
 import { BranchOutputs } from './components/branch-outputs';
 import { GithubButton } from './components/github-button';
+import { KoiMarketButton } from './components/koi-market-button';
 import { RecentBranches } from './components/recent-branches';
 import { ResetButton } from './components/reset-button';
 import { SettingsButton } from './components/settings-button';
 import { SettingsPanel } from './components/settings-panel';
+import { useKoiAccount, useMarketDay } from './hooks/use-koi-account';
 import { useRecentBranches } from './hooks/use-recent-branches';
 import { buildAiHandoffTargets } from './lib/ai-handoff';
 import {
@@ -51,6 +53,12 @@ const ParticlesBackground = lazy(() =>
   }))
 );
 
+// The market photographs its koi with three.js, so it loads only when opened
+// and shares the renderer chunk the pond has already paid for.
+const KoiMarket = lazy(() =>
+  import('./components/koi-market').then((module) => ({ default: module.KoiMarket }))
+);
+
 const AUTOSAVE_IDLE_MS = 5 * 60 * 1000;
 
 type LoadableBranch = { form: PersistedForm; separators: BranchSeparators };
@@ -91,6 +99,10 @@ export const App = (): JSX.Element => {
     parseBaseFish(readStorage(BASE_FISH_STORAGE_KEY))
   );
   const { recentBranches, addRecentBranch, removeRecentBranch } = useRecentBranches();
+  const market = useKoiAccount(recentBranches);
+  const { rewardForBranch, markMarketSeen } = market;
+  const marketDay = useMarketDay();
+  const [marketOpen, setMarketOpen] = useState(false);
 
   const branchName = useMemo(() => generateBranchName(form, settings), [form, settings]);
   const pullRequestTitle = useMemo(
@@ -130,20 +142,26 @@ export const App = (): JSX.Element => {
       return;
     }
 
-    const timer = setTimeout(
-      () =>
-        addRecentBranch(branchName, {
-          form,
-          separators: {
-            typeSeparator: settings.typeSeparator,
-            ticketSeparator: settings.ticketSeparator
-          }
-        }),
-      AUTOSAVE_IDLE_MS
-    );
+    const timer = setTimeout(() => {
+      addRecentBranch(branchName, {
+        form,
+        separators: {
+          typeSeparator: settings.typeSeparator,
+          ticketSeparator: settings.ticketSeparator
+        }
+      });
+      // A branch worth keeping is a branch worth paying for; a name that was
+      // already copied has been paid for and earns nothing twice.
+      rewardForBranch(branchName);
+    }, AUTOSAVE_IDLE_MS);
 
     return () => clearTimeout(timer);
-  }, [form, settings, branchName, addRecentBranch]);
+  }, [form, settings, branchName, addRecentBranch, rewardForBranch]);
+
+  const openMarket = (): void => {
+    setMarketOpen(true);
+    markMarketSeen(marketDay);
+  };
 
   const handleChange = (patch: Partial<PersistedForm>): void => {
     setForm((current) => ({ ...current, ...patch }));
@@ -207,6 +225,7 @@ export const App = (): JSX.Element => {
           <Koi3dBackground
             recentBranches={recentBranches}
             baseFishCount={baseFishCount}
+            ownedKoi={market.account.owned}
             avoidRef={panelRef}
           />
         </Suspense>
@@ -223,6 +242,15 @@ export const App = (): JSX.Element => {
             <div className="panel-header-top">
               <h1>Branchify 🪾</h1>
               <div className="header-actions">
+                {background === 'koi' && (
+                  <KoiMarketButton
+                    coins={market.account.coins}
+                    hasNewStock={market.account.seenDay !== marketDay}
+                    reward={market.lastReward}
+                    expanded={marketOpen}
+                    onClick={openMarket}
+                  />
+                )}
                 <GithubButton />
                 <SettingsButton expanded={settingsOpen} onClick={() => setSettingsOpen(true)} />
                 <ResetButton onReset={handleReset} />
@@ -250,6 +278,7 @@ export const App = (): JSX.Element => {
             branchName={branchName}
             gitCommand={gitCommand}
             pullRequestTitle={pullRequestTitle}
+            onCopy={() => rewardForBranch(branchName)}
           />
 
           <RecentBranches
@@ -267,6 +296,11 @@ export const App = (): JSX.Element => {
             onBackgroundChange={setBackground}
             baseFishCount={baseFishCount}
             onBaseFishCountChange={setBaseFishCount}
+            marketKoiCount={market.account.owned.length}
+            onOpenMarket={() => {
+              setSettingsOpen(false);
+              openMarket();
+            }}
             aiHandoffTargets={settings.aiHandoffTargets}
             onAiHandoffTargetsChange={(aiHandoffTargets) =>
               handleSettingsChange({ aiHandoffTargets })
@@ -276,6 +310,19 @@ export const App = (): JSX.Element => {
             onResetTypes={handleResetTypes}
             onClose={() => setSettingsOpen(false)}
           />
+        )}
+
+        {marketOpen && background === 'koi' && (
+          <Suspense fallback={null}>
+            <KoiMarket
+              account={market.account}
+              day={marketDay}
+              onBuy={market.buy}
+              onRelease={market.release}
+              onDismissWelcome={market.dismissMarketWelcome}
+              onClose={() => setMarketOpen(false)}
+            />
+          </Suspense>
         )}
       </main>
     </>

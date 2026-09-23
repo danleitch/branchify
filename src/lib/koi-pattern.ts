@@ -12,7 +12,7 @@
  * reads as a saddle over the back rather than a spot, and its outline is warped
  * rather than elliptical, because nothing on a real koi has a clean edge.
  */
-import { createRandom } from './koi-roster';
+import { createRandom } from './seeded-random';
 
 /** The pattern families a koi can be written in. */
 /**

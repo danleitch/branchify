@@ -21,6 +21,12 @@ import type { RecentBranch } from '../types';
 import { WATER_TINT, dimHex, hslToHex, mixHex, withAlpha } from './koi-colour';
 import type { KoiPatternName } from './koi-pattern';
 import { DEFAULT_BASE_FISH, MAX_KOI } from './koi';
+import type { OwnedKoi } from './koi-account';
+import { resolveLook, type KoiGenome } from './koi-genome';
+import { hashString } from './seeded-random';
+
+// Re-exported so existing callers keep importing the seeded helpers from here.
+export { createRandom, hashString } from './seeded-random';
 
 /** The white nishikigoi ground most varieties are written on. */
 const WHITE_GROUND = '#f6f1e9';
@@ -54,33 +60,11 @@ export type KoiDescriptor = {
   key: string;
   /** Drives every deterministic number about this fish. */
   seed: number;
-  /** The branch this koi stands for, or null for a resident. */
+  /** The branch this koi stands for, a market koi's name, or null for a resident. */
   label: string | null;
   palette: KoiPalette;
-};
-
-/** A stable 32-bit hash, so the same branch name always seeds the same koi. */
-export const hashString = (value: string): number => {
-  let hash = 2166136261;
-
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-
-  return hash >>> 0;
-};
-
-/** A small deterministic generator, so traits are stable per seed. */
-export const createRandom = (seed: number): (() => number) => {
-  let state = seed >>> 0;
-
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let drawn = Math.imul(state ^ (state >>> 15), 1 | state);
-    drawn = (drawn + Math.imul(drawn ^ (drawn >>> 7), 61 | drawn)) ^ drawn;
-    return ((drawn ^ (drawn >>> 14)) >>> 0) / 4294967296;
-  };
+  /** Present for a koi bought at the market, whose look comes from its variety. */
+  genome?: KoiGenome;
 };
 
 /**
@@ -162,13 +146,29 @@ export const sinkPalette = (palette: KoiPalette, depth: number): KoiPalette => {
  * A branch always outranks a resident — raising the base fish count only
  * grows the pond when there aren't enough branches to fill it on their own.
  *
+ * Koi bought at the market outrank both: once the visitor owns one, the pond
+ * is theirs, and the branch koi and residents rest until every market koi has
+ * been released again.
+ *
  * @param baseFishCount - The floor Settings has chosen; clamped into range so
  * a corrupt or future stored value can't grow the pond past its own cap.
  */
 export const buildKoiRoster = (
   recentBranches: readonly RecentBranch[],
-  baseFishCount: number = DEFAULT_BASE_FISH
+  baseFishCount: number = DEFAULT_BASE_FISH,
+  ownedKoi: readonly OwnedKoi[] = []
 ): KoiDescriptor[] => {
+  if (ownedKoi.length > 0) {
+    return ownedKoi.slice(0, MAX_KOI).map((koi) => ({
+      // Prefixed so a market koi can never share a key with a branch of the same name.
+      key: `market:${koi.id}`,
+      seed: koi.genome.seed,
+      label: koi.name,
+      palette: resolveLook(koi.genome).flat,
+      genome: koi.genome
+    }));
+  }
+
   const base = Math.min(MAX_KOI, Math.max(0, Math.round(baseFishCount)));
   const roster = recentBranches.slice(0, MAX_KOI).map((item): KoiDescriptor => {
     const seed = hashString(item.value);
