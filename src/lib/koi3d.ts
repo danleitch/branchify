@@ -30,8 +30,18 @@ import type {
   KoiTraits,
   PondEnvironment
 } from '../vendor/koi-pond/model/types';
-import { createKoiMotion } from '../vendor/koi-pond/motion/koi-motion';
-import type { KoiDesire, KoiMotion, KoiSteerContext } from '../vendor/koi-pond/motion/koi-motion';
+import {
+  DEFAULT_MOTION_LIMITS,
+  DEFAULT_MOTION_TRIM,
+  createKoiMotion
+} from '../vendor/koi-pond/motion/koi-motion';
+import type {
+  KoiDesire,
+  KoiMotion,
+  KoiMotionBand,
+  KoiMotionOptions,
+  KoiSteerContext
+} from '../vendor/koi-pond/motion/koi-motion';
 import { createKoi } from '../vendor/koi-pond/three/koi';
 import type { Koi } from '../vendor/koi-pond/three/koi';
 import {
@@ -164,6 +174,52 @@ export const CM_PER_FISH_LENGTH = 60;
  */
 export const paceScale = (scale: number): number => (scale < 1 ? Math.sqrt(scale) : scale);
 
+/**
+ * The fastest a goldfish ever swims, in its own paced lengths per second.
+ *
+ * The library lets a koi burst to more than twice its cruise now and then,
+ * which on a small bright fish reads as a flicker across the screen rather
+ * than a dart; a goldfish's brisk spells and bursts are capped here instead.
+ */
+const GOLDFISH_TOP_BLS = 1.1;
+
+/** How a fish's speeds scale against a nominal fish's: by its paced length, once it has a size. */
+const swimScale = (entry: KoiEntry, profile: KoiProfile): number =>
+  entry.lengthCm ? profile.build.lengthScale : 1;
+
+/**
+ * Scales the library's speeds to a fish's size.
+ *
+ * The library states every speed in nominal fish lengths, whatever the fish's
+ * own size, so left alone a 9 cm goldfish covers as much water each second as
+ * a 60 cm koi: several of its own lengths, with a tail beat to match. A sized
+ * fish has its bands scaled by its paced length, so it swims in its own body
+ * lengths as `paceScale` intends. A branch koi keeps the library's bands.
+ */
+export const motionFor = (
+  entry: KoiEntry,
+  profile: KoiProfile
+): Pick<KoiMotionOptions, 'trim' | 'limits'> => {
+  const scale = swimScale(entry, profile);
+  const scaled = (band: KoiMotionBand): KoiMotionBand => ({
+    min: band.min * scale,
+    max: band.max * scale
+  });
+  const top =
+    entry.genome && isGoldfish(entry.genome) ? GOLDFISH_TOP_BLS : DEFAULT_MOTION_LIMITS.maxSpeedBlS;
+
+  return {
+    trim: {
+      cruiseBlS: scaled(DEFAULT_MOTION_TRIM.cruiseBlS),
+      escapeBlS: scaled(DEFAULT_MOTION_TRIM.escapeBlS)
+    },
+    limits: {
+      maxSpeedBlS: top * scale,
+      accelLimitBlS2: DEFAULT_MOTION_LIMITS.accelLimitBlS2 * scale
+    }
+  };
+};
+
 /** Goldfish are busier than koi: brisker, and bolder about food, each breed at its own pace. */
 const goldfishTraits = (traits: KoiTraits, pace: number): KoiTraits => ({
   ...traits,
@@ -274,6 +330,12 @@ type Swimmer = {
   rising: boolean;
   /** When it will next gulp at the surface. */
   gulpAtS: number;
+  /** Its breaks from swimming; null for a goldfish, which never sits still. */
+  rest: KoiRest | null;
+  /** How far into a rest it is, 0 swimming to 1 hanging still. */
+  resting: number;
+  /** Its speeds against a nominal fish's, which sets how long it is given to swim out. */
+  swimScale: number;
 };
 
 /** How quickly a koi rises to the surface or sinks back, in seconds to close most of the way. */
@@ -307,6 +369,96 @@ const isEager = (genome: FishGenome | undefined): boolean => {
   }
 
   return isGoldfish(genome) ? (goldfishOf(genome).pace ?? 1) >= 1 : genome.variety === 'chagoi';
+};
+
+/** How long between one koi's rests, in seconds, from the laziest koi to the most restless. */
+const REST_GAP_S = { min: 35, max: 110 };
+
+/** How long a rest lasts, in seconds. */
+const REST_S = { min: 8, max: 18 };
+
+/** The share of its cruise a resting koi keeps: a slow drift with its fins sculling, never a dead stop. */
+const REST_PACE = 0.12;
+
+/** How long a koi takes to glide down into a rest, and to shake one off, in seconds to close most of the way. */
+const SETTLE_S = 1.6;
+const WAKE_S = 0.6;
+
+/** A koi's breaks from swimming. */
+export type KoiRest = {
+  /**
+   * Moves the rest on by a frame and says how far into one the koi is, from
+   * 0 swimming to 1 hanging nearly still in the water.
+   *
+   * @param free - Nothing on its mind and open water around it. A koi only
+   *   settles while both hold, and wakes the moment either stops.
+   */
+  step: (clockS: number, dt: number, free: boolean) => number;
+};
+
+/**
+ * Schedules a koi's rests.
+ *
+ * Real koi spend a good part of the day hanging in the water, barely sculling.
+ * Some koi are lazier than others, and it is the same koi every visit, so how
+ * often it rests comes from its seed; when, and for how long, is left to
+ * chance. A rest it is too busy for, eating or looking at a ripple, is simply
+ * missed, and one interrupted is taken back up if there is time left in it.
+ */
+export const createRest = (
+  seed: number,
+  startS: number,
+  random: () => number = Math.random
+): KoiRest => {
+  const gapS = REST_GAP_S.min + (((seed >>> 7) % 100) / 100) * (REST_GAP_S.max - REST_GAP_S.min);
+  const length = (): number => REST_S.min + random() * (REST_S.max - REST_S.min);
+  // The first rest comes sooner than the rest, so a visitor who stays a minute sees one.
+  let fromS = startS + gapS * (0.3 + random() * 0.7);
+  let untilS = fromS + length();
+  let rest = 0;
+
+  return {
+    step(clockS, dt, free) {
+      if (clockS >= untilS) {
+        fromS = clockS + gapS * (0.6 + random() * 0.8);
+        untilS = fromS + length();
+      }
+
+      const wanted = free && clockS >= fromS ? 1 : 0;
+      rest += (wanted - rest) * (1 - Math.exp(-dt / (wanted > rest ? SETTLE_S : WAKE_S)));
+
+      return rest;
+    }
+  };
+};
+
+/** The share of its pace a koi swims at, this far into a rest. */
+export const restingPace = (rest: number): number => 1 - rest * (1 - REST_PACE);
+
+/**
+ * Whether a point is open water for a koi to rest in: in view, and clear of
+ * the panel, since a fish that stops under the form is a fish nobody sees.
+ */
+export const inOpenWater = (
+  point: PondPoint,
+  pond: { width: number; height: number; fishLength: number },
+  island: PondIsland | null
+): boolean => {
+  const inset = pond.fishLength * 0.5;
+  const margin = pond.fishLength * ISLAND_MARGIN;
+  const inView =
+    point.x > inset &&
+    point.y > inset &&
+    point.x < pond.width - inset &&
+    point.y < pond.height - inset;
+  const underPanel =
+    island !== null &&
+    point.x > island.x - margin &&
+    point.y > island.y - margin &&
+    point.x < island.x + island.width + margin &&
+    point.y < island.y + island.height + margin;
+
+  return inView && !underPanel;
 };
 
 /** Whether a departing koi is far enough past every edge to vanish without being seen to. */
@@ -419,6 +571,7 @@ export const createKoiBrain = (
     motion: createKoiMotion(
       { profile, pond, ...start, depth: homeDepth(entry) },
       {
+        ...motionFor(entry, profile),
         desire: (desire, context) => {
           const exit = readExit();
 
@@ -544,7 +697,8 @@ export const createPondStage = (
     eaten: Set<number>
   ): void => {
     const nose = swimmer.motion.state.position;
-    const target = swimmer.rising ? SURFACE_DEPTH : swimmer.home;
+    // A resting koi sinks a little, as they do, and comes back up when it moves off.
+    const target = swimmer.rising ? SURFACE_DEPTH : Math.max(0, swimmer.home - swimmer.resting);
     swimmer.level += (target - swimmer.level) * (1 - Math.exp(-dt / DEPTH_EASE_S));
 
     if (swimmer.meal !== null && !eaten.has(swimmer.meal)) {
@@ -612,7 +766,10 @@ export const createPondStage = (
       meal: null,
       looking: false,
       rising: false,
-      gulpAtS: 0
+      gulpAtS: 0,
+      rest: entry.genome && isGoldfish(entry.genome) ? null : createRest(entry.seed, clock),
+      resting: 0,
+      swimScale: swimScale(entry, profile)
     });
   };
 
@@ -643,13 +800,23 @@ export const createPondStage = (
         }
 
         think(swimmer, eaten.size > 0 ? food.filter((pellet) => !eaten.has(pellet.id)) : food);
-        swimmer.motion.advance(dt);
+
+        const free =
+          !swimmer.exit &&
+          !swimmer.focus &&
+          inOpenWater(swimmer.motion.state.position, pond, island);
+        swimmer.resting = swimmer.rest?.step(clock, dt, free) ?? 0;
+        // A resting koi's brain is run slow rather than told to stop: it
+        // drifts on its own course and turns as lazily as it moves, then
+        // picks up where it was when it wakes.
+        const pace = restingPace(swimmer.resting);
+        swimmer.motion.advance(dt * pace);
         act(swimmer, dt, food, eaten);
 
         const { state } = swimmer.motion;
         // The swimming model thinks in this koi's own body lengths, while the
         // brain thinks in pond pixels.
-        const speed = state.speed / swimmer.bodyPx;
+        const speed = (state.speed * pace) / swimmer.bodyPx;
         const turnRate =
           swimmer.lastHeading === null
             ? 0
@@ -708,7 +875,8 @@ export const createPondStage = (
         } else if (!swimmer.exit) {
           swimmer.exit = {
             heading: exitHeading(swimmer.motion.state.position, pond.width),
-            secondsLeft: EXIT_TIMEOUT_S
+            // A small fish swims slower, so it is given longer to get out of sight.
+            secondsLeft: EXIT_TIMEOUT_S / Math.min(1, swimmer.swimScale)
           };
         }
       }

@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { ARRIVED_REACH, CURIOUS_GAIN, distance, insidePond } from './koi-attention';
+import { DEFAULT_MOTION_TRIM } from '../vendor/koi-pond/motion/koi-motion';
 import {
   createKoiBrain,
+  createRest,
   exitHeading,
   hasLeftPond,
+  inOpenWater,
+  motionFor,
   pondFor,
   profileFor,
+  restingPace,
   type KoiEntry,
   type KoiFocus,
   type PondIsland
@@ -148,6 +153,115 @@ describe('market koi in the pond', () => {
   it('builds a market koi on its variety’s body, not the branch archetype', () => {
     expect(profileFor(marketEntry('chagoi', 3)).framework).toBe('react');
     expect(profileFor(marketEntry('chagoi', 4)).framework).toBe('react');
+  });
+});
+
+describe('pace by size', () => {
+  const goldfish = (lengthCm: number): KoiEntry => ({
+    key: `goldfish:${lengthCm}`,
+    seed: 11,
+    accent: '#ffffff',
+    genome: { species: 'goldfish', variety: 'comet', seed: 11 },
+    lengthCm
+  });
+
+  /** The fastest a fish goes over two minutes, in its own drawn lengths per second. */
+  const fastest = (fish: KoiEntry): number => {
+    const { profile, motion } = createKoiBrain(fish, POND, () => null);
+    const drawn = POND.fishLength * (profile.phenotype.length ?? profile.build.lengthScale);
+    let top = 0;
+
+    for (let frame = 0; frame < 120 * 60; frame += 1) {
+      motion.advance(1 / 60);
+      top = Math.max(top, motion.state.speed / drawn);
+    }
+
+    return top;
+  };
+
+  it('keeps a small goldfish to a fish’s pace, not a dash across the pond', () => {
+    // Paced by the pond's nominal koi, a 9 cm comet averaged three of its own
+    // lengths a second and peaked near six.
+    expect(fastest(goldfish(9))).toBeLessThan(3);
+  });
+
+  it('lets a grown goldfish swim further each second than a fry, but fewer of its own lengths', () => {
+    const small = createKoiBrain(goldfish(9), POND, () => null).profile;
+    const grown = createKoiBrain(goldfish(30), POND, () => null).profile;
+
+    expect(motionFor(goldfish(30), grown).limits!.maxSpeedBlS!).toBeGreaterThan(
+      motionFor(goldfish(9), small).limits!.maxSpeedBlS!
+    );
+    expect(fastest(goldfish(30))).toBeLessThan(fastest(goldfish(9)));
+  });
+
+  it('leaves a branch koi on the library’s own pace', () => {
+    const koi = entry('feat/pace');
+    const { trim } = motionFor(koi, profileFor(koi));
+
+    expect(trim!.cruiseBlS).toEqual(DEFAULT_MOTION_TRIM.cruiseBlS);
+  });
+});
+
+describe('resting', () => {
+  /** Steps a rest for a while, reporting the deepest it went. */
+  const deepest = (seconds: number, free: (clockS: number) => boolean): number => {
+    const rest = createRest(7, 0, () => 0.5);
+    let deepest = 0;
+
+    for (let frame = 0; frame < seconds * 60; frame += 1) {
+      const clock = frame / 60;
+      deepest = Math.max(deepest, rest.step(clock, 1 / 60, free(clock)));
+    }
+
+    return deepest;
+  };
+
+  it('settles into a rest now and then', () => {
+    expect(deepest(180, () => true)).toBeGreaterThan(0.95);
+  });
+
+  it('does not rest while it has something on its mind', () => {
+    expect(deepest(180, () => false)).toBe(0);
+  });
+
+  it('wakes promptly when something comes up, and settles again after', () => {
+    const rest = createRest(7, 0, () => 0.5);
+    let clock = 0;
+    const run = (seconds: number, free: boolean): number => {
+      let at = 0;
+
+      for (let frame = 0; frame < seconds * 60; frame += 1) {
+        clock += 1 / 60;
+        at = rest.step(clock, 1 / 60, free);
+      }
+
+      return at;
+    };
+
+    // Swim until it is well into a rest.
+    let settled = 0;
+
+    while (settled < 0.95 && clock < 300) {
+      settled = run(1, true);
+    }
+
+    expect(settled).toBeGreaterThan(0.95);
+    expect(run(1.5, false)).toBeLessThan(0.1);
+    expect(run(4, true)).toBeGreaterThan(0.8);
+  });
+
+  it('keeps some pace while resting, so the fins still scull', () => {
+    expect(restingPace(0)).toBe(1);
+    expect(restingPace(1)).toBeGreaterThan(0);
+    expect(restingPace(1)).toBeLessThan(0.2);
+  });
+
+  it('only rests in open water, not under the panel or off the edge', () => {
+    expect(inOpenWater({ x: 150, y: 450 }, POND, ISLAND)).toBe(true);
+    expect(inOpenWater({ x: 700, y: 450 }, POND, ISLAND)).toBe(false);
+    expect(inOpenWater({ x: 10, y: 450 }, POND, ISLAND)).toBe(false);
+    expect(inOpenWater({ x: 700, y: 450 }, POND, null)).toBe(true);
   });
 });
 
