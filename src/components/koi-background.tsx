@@ -10,7 +10,9 @@ import {
 import type { OwnedGoldfish, OwnedKoi } from '../lib/koi-account';
 import { buildKoiRoster } from '../lib/koi-roster';
 import { createWater } from '../lib/koi-water';
-import { createPondScenery } from '../lib/pond-scenery';
+import { attachLilyDragging } from '../lib/lily-drag';
+import type { LilyPlacements } from '../lib/pond-decor';
+import { createPondScenery, type PondScenery } from '../lib/pond-scenery';
 import type { RecentBranch } from '../types';
 
 type KoiBackgroundProps = {
@@ -23,7 +25,14 @@ type KoiBackgroundProps = {
   ownedGoldfish?: readonly OwnedGoldfish[];
   /** The panel, which the koi treat as an island so they stay in view around it. */
   avoidRef?: RefObject<HTMLElement>;
+  /** Where the visitor has floated the lilies to. */
+  lilyPlacements?: LilyPlacements;
+  /** A lily has been dragged somewhere new. */
+  onLilyPlacementsChange?: (placements: LilyPlacements) => void;
 };
+
+/** Every lily where the pond put it; one array, so a default prop doesn't relay the pond each render. */
+const NO_PLACEMENTS: LilyPlacements = [];
 
 /** Retina is honoured up to a point; past 2x the fish cost more than they gain. */
 const MAX_PIXEL_RATIO = 2;
@@ -41,7 +50,9 @@ const KoiBackgroundInner = ({
   baseFishCount,
   ownedKoi,
   ownedGoldfish,
-  avoidRef
+  avoidRef,
+  lilyPlacements = NO_PLACEMENTS,
+  onLilyPlacementsChange
 }: KoiBackgroundProps): JSX.Element => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const swimmersRef = useRef<Swimmer[]>([]);
@@ -54,6 +65,13 @@ const KoiBackgroundInner = ({
   avoidElementRef.current = avoidRef;
   const rosterRef = useRef(roster);
   rosterRef.current = roster;
+  const sceneryRef = useRef<PondScenery | null>(null);
+  // Paints the pond again as it stands; a still pond needs it after a lily moves.
+  const repaintRef = useRef<(() => void) | null>(null);
+  const lilyPlacementsRef = useRef(lilyPlacements);
+  lilyPlacementsRef.current = lilyPlacements;
+  const onLilyPlacementsChangeRef = useRef(onLilyPlacementsChange);
+  onLilyPlacementsChangeRef.current = onLilyPlacementsChange;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -67,6 +85,8 @@ const KoiBackgroundInner = ({
     const water = createWater();
     // The same stones and lilies as the 3D pond, so the fallback is the same pond.
     const scenery = createPondScenery();
+    scenery.placeLilies(lilyPlacementsRef.current);
+    sceneryRef.current = scenery;
 
     const resize = (): void => {
       const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
@@ -138,6 +158,11 @@ const KoiBackgroundInner = ({
     const reducedMotion = prefersReducedMotion();
     let elapsedS = 0;
 
+    const dragging = attachLilyDragging(scenery, {
+      onMove: () => repaintRef.current?.(),
+      onDrop: (placements) => onLilyPlacementsChangeRef.current?.(placements)
+    });
+
     const step = (dt: number): void => {
       elapsedS += dt;
       swimmersRef.current = swimmersRef.current.map((swimmer) =>
@@ -152,11 +177,15 @@ const KoiBackgroundInner = ({
       }
 
       render(elapsedS);
+      repaintRef.current = () => render(elapsedS);
       window.addEventListener('resize', handleResize);
 
       return () => {
         window.removeEventListener('resize', handleResize);
         observer?.disconnect();
+        dragging.detach();
+        repaintRef.current = null;
+        sceneryRef.current = null;
       };
     }
 
@@ -193,8 +222,16 @@ const KoiBackgroundInner = ({
       window.removeEventListener('resize', handleResize);
       document.removeEventListener('visibilitychange', handleVisibility);
       observer?.disconnect();
+      dragging.detach();
+      sceneryRef.current = null;
     };
   }, []);
+
+  // A reset, or a placement saved elsewhere, puts the lilies where they now belong.
+  useEffect(() => {
+    sceneryRef.current?.placeLilies(lilyPlacements);
+    repaintRef.current?.();
+  }, [lilyPlacements]);
 
   // Branches coming and going must not restart the loop or move the other koi.
   useEffect(() => {
