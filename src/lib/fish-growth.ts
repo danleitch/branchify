@@ -169,3 +169,23 @@ export const koiAgeClass = (ageYears: number): KoiAgeClass =>
 
 /** Lengths as a listing quotes them: whole centimetres. */
 export const formatCm = (cm: number): string => `${Math.round(cm)} cm`;
+
+/** How long ago a fish joined the pond, in calendar days: "Joined yesterday". */
+export const joinedLabel = (acquiredAt: string, now: Date): string => {
+  const acquired = new Date(acquiredAt);
+  const days = Math.round(
+    (new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() -
+      new Date(acquired.getFullYear(), acquired.getMonth(), acquired.getDate()).getTime()) /
+      86_400_000
+  );
+
+  if (Number.isNaN(days) || days < 0) {
+    return 'Joined recently';
+  }
+
+  if (days === 0) {
+    return 'Joined today';
+  }
+
+  return days === 1 ? 'Joined yesterday' : `Joined ${days} days ago`;
+};

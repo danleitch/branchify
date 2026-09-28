@@ -1940,3 +1940,166 @@ code {
   justify-content: center;
   gap: 0.5rem;
 }
+
+/* A fish's card, opened by clicking it in the pond, and carrying it about. */
+
+.koi-over-fish {
+  cursor: grab;
+}
+
+.koi-carrying,
+.koi-carrying * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.fish-card {
+  --rarity: #9ca3af;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  width: min(20rem, calc(100vw - 1.5rem));
+  max-height: calc(100vh - 1.5rem);
+  overflow-y: auto;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.9rem 1rem 1rem;
+  border-radius: 14px;
+  background: rgba(13, 17, 23, 0.92);
+  border: 1px solid color-mix(in srgb, var(--rarity) 45%, transparent);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(10px);
+  color: #f3f4f6;
+  /* Hidden for the one frame it takes to measure where it fits. */
+  visibility: hidden;
+}
+
+.fish-card[data-placed] {
+  visibility: visible;
+  animation: fish-card-in 0.18s ease-out;
+}
+
+@keyframes fish-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
+.fish-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.fish-card-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.fish-card-close {
+  flex-shrink: 0;
+  padding: 0.1rem 0.35rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+}
+
+.fish-card-close:hover,
+.fish-card-close:focus-visible {
+  color: #f3f4f6;
+  background: rgba(148, 163, 184, 0.15);
+}
+
+.fish-card .koi-photo {
+  border-radius: 10px;
+}
+
+.fish-card-meaning {
+  margin: -0.3rem 0 0;
+  color: #6b7280;
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.fish-card-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.fish-card-activity {
+  color: #9ca3af;
+  font-size: 0.78rem;
+}
+
+.fish-card-personality {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fish-card-personality li {
+  padding: 0.08rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: #a7f3d0;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.fish-card-facts {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.84rem;
+}
+
+.fish-card-facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.fish-card-facts dt {
+  color: #9ca3af;
+}
+
+.fish-card-facts dd {
+  margin: 0;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.fish-card-facts .coin-amount {
+  color: #fcd679;
+  font-weight: 700;
+}
+
+.fish-card-note {
+  color: #6b7280;
+  font-size: 0.76rem;
+}
+
+.fish-card-hint {
+  margin: 0.1rem 0 0;
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fish-card[data-placed] {
+    animation: none;
+  }
+}

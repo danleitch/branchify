@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAwake } from '../hooks/use-awake';
-import { ageAtLength, formatCm, growthOf, koiAgeClass } from '../lib/fish-growth';
+import { ageAtLength, formatCm, growthOf, joinedLabel, koiAgeClass } from '../lib/fish-growth';
 import { goldfishOf } from '../lib/goldfish';
 import type { GoldfishListing } from '../lib/goldfish-market';
 import {
@@ -221,25 +221,6 @@ export const GoldfishCard = ({
       </div>
     </article>
   );
-};
-
-const joinedLabel = (acquiredAt: string, now: Date): string => {
-  const acquired = new Date(acquiredAt);
-  const days = Math.round(
-    (new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() -
-      new Date(acquired.getFullYear(), acquired.getMonth(), acquired.getDate()).getTime()) /
-      86_400_000
-  );
-
-  if (Number.isNaN(days) || days < 0) {
-    return 'Joined recently';
-  }
-
-  if (days === 0) {
-    return 'Joined today';
-  }
-
-  return days === 1 ? 'Joined yesterday' : `Joined ${days} days ago`;
 };
 
 type OwnedFishRowProps = (

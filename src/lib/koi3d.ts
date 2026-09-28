@@ -72,6 +72,7 @@ import {
 import { goldfishOf, isGoldfish } from './goldfish';
 import { createGenomeKoi } from './koi-body';
 import { koiBuildFor, type FishGenome } from './koi-genome';
+import type { FishActivity, FishReading } from './koi-inspect';
 
 /** A rectangle the koi will not swim under, in CSS pixels. */
 export type PondIsland = { x: number; y: number; width: number; height: number };
@@ -104,6 +105,16 @@ export type PondStage = {
   setRoster: (entries: readonly KoiEntry[]) => void;
   /** Something touched the water here; the koi come over to see, each in its own time. */
   attend: (point: PondPoint) => void;
+  /** The key of the fish under a point, nearest the surface first, or null for open water. */
+  pick: (point: PondPoint) => string | null;
+  /** What the pond knows about a fish right now, or null when it isn't swimming. */
+  inspect: (key: string) => FishReading | null;
+  /** Takes hold of a fish at a point; it follows `carry` until `release`. */
+  grab: (key: string, point: PondPoint) => boolean;
+  /** Moves the held fish so the spot it was grabbed by follows the point. */
+  carry: (point: PondPoint) => void;
+  /** Lets the held fish go, to swim on from wherever it was set down. */
+  release: () => void;
   dispose: () => void;
 };
 
@@ -336,6 +347,73 @@ type Swimmer = {
   resting: number;
   /** Its speeds against a nominal fish's, which sets how long it is given to swim out. */
   swimScale: number;
+  /** The pattern it is dressed in, for a fish without a genome. */
+  pattern: string;
+  /** Where a visitor is carrying it, while they hold it; null while it swims free. */
+  held: Hold | null;
+};
+
+/** A fish in a visitor's hand: where its nose is being carried, and how far that is from their pointer. */
+type Hold = { nose: PondPoint; offset: PondPoint };
+
+/**
+ * How much slack a click on a fish is given beyond its body, in pixels.
+ *
+ * A koi is a moving target a few dozen pixels wide; a click that lands on the
+ * water just beside one was meant for it.
+ */
+const PICK_SLACK_PX = 10;
+
+/** How far inside the pond's edge a carried fish is kept, as a fraction of a nominal length. */
+const CARRY_INSET = 0.25;
+
+/** The fastest a carried fish's tail beats, in its own body lengths per second. */
+const CARRIED_TOP_BLS = 3;
+
+/** How hard the water breaks where a carried fish is set down. */
+const SET_DOWN_RIPPLE = 0.8;
+
+/** The distance from a point to a segment. */
+const toSegment = (point: PondPoint, a: PondPoint, b: PondPoint): number => {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const span = dx * dx + dy * dy;
+  const along =
+    span === 0 ? 0 : Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / span));
+
+  return distance(point, { x: a.x + dx * along, y: a.y + dy * along });
+};
+
+/**
+ * How far a point lies outside a fish's body, in pixels; zero or less is on it.
+ *
+ * The brain's outline is laid down at the length it paces the fish by, which
+ * for a small fish is longer than the body drawn, so the outline is shrunk
+ * toward the nose to match what the visitor actually sees.
+ */
+export const outsideBody = (
+  point: PondPoint,
+  outline: { spine: readonly PondPoint[]; girth: readonly number[] },
+  meshRatio: number
+): number => {
+  const nose = outline.spine[0];
+
+  if (!nose) {
+    return Infinity;
+  }
+
+  const spine = outline.spine.map((joint) => ({
+    x: nose.x + (joint.x - nose.x) * meshRatio,
+    y: nose.y + (joint.y - nose.y) * meshRatio
+  }));
+  let nearest = Infinity;
+
+  for (let index = 0; index < spine.length - 1; index += 1) {
+    const girth = Math.max(outline.girth[index] ?? 0, outline.girth[index + 1] ?? 0) * meshRatio;
+    nearest = Math.min(nearest, toSegment(point, spine[index]!, spine[index + 1]!) - girth);
+  }
+
+  return spine.length === 1 ? distance(point, nose) : nearest;
 };
 
 /** How quickly a koi rises to the surface or sinks back, in seconds to close most of the way. */
@@ -647,6 +725,16 @@ export const createPondStage = (
       return;
     }
 
+    // Lifted toward the surface in a visitor's hand, with nothing else on its
+    // mind; whatever it was after is forgotten by the time it is set down.
+    if (swimmer.held) {
+      swimmer.rising = true;
+      swimmer.curiosity = null;
+      swimmer.hungryFromS = null;
+      swimmer.meal = null;
+      return;
+    }
+
     if (food.length === 0) {
       swimmer.hungryFromS = null;
       swimmer.meal = null;
@@ -769,14 +857,46 @@ export const createPondStage = (
       gulpAtS: 0,
       rest: entry.genome && isGoldfish(entry.genome) ? null : createRest(entry.seed, clock),
       resting: 0,
-      swimScale: swimScale(entry, profile)
+      swimScale: swimScale(entry, profile),
+      pattern: profile.palette.pattern,
+      held: null
     });
   };
 
+  /** The fish a visitor is holding, if any; only one fits in a hand. */
+  let holding: Swimmer | null = null;
+
+  const letGo = (): void => {
+    if (holding) {
+      holding.held = null;
+      holding = null;
+    }
+  };
+
   const remove = (key: string, swimmer: Swimmer): void => {
+    if (swimmer === holding) {
+      letGo();
+    }
+
     swimmer.koi.unmount();
     swimmer.koi.dispose();
     swimmers.delete(key);
+  };
+
+  const activityOf = (swimmer: Swimmer): FishActivity => {
+    if (swimmer.exit) {
+      return 'leaving';
+    }
+
+    if (swimmer.meal !== null) {
+      return 'feeding';
+    }
+
+    if (swimmer.curiosity && clock >= swimmer.curiosity.fromS) {
+      return 'curious';
+    }
+
+    return swimmer.resting > 0.5 ? 'resting' : 'cruising';
   };
 
   return {
@@ -804,19 +924,32 @@ export const createPondStage = (
         const free =
           !swimmer.exit &&
           !swimmer.focus &&
+          !swimmer.held &&
           inOpenWater(swimmer.motion.state.position, pond, island);
         swimmer.resting = swimmer.rest?.step(clock, dt, free) ?? 0;
         // A resting koi's brain is run slow rather than told to stop: it
         // drifts on its own course and turns as lazily as it moves, then
         // picks up where it was when it wakes.
         const pace = restingPace(swimmer.resting);
-        swimmer.motion.advance(dt * pace);
+        const from = swimmer.motion.state.position;
+
+        if (swimmer.held) {
+          // Carried rather than swum: the brain is placed every frame, so its
+          // body keeps trailing the hand even while the hand is still.
+          swimmer.motion.place(swimmer.held.nose);
+        } else {
+          swimmer.motion.advance(dt * pace);
+        }
+
         act(swimmer, dt, food, eaten);
 
         const { state } = swimmer.motion;
         // The swimming model thinks in this koi's own body lengths, while the
-        // brain thinks in pond pixels.
-        const speed = (state.speed * pace) / swimmer.bodyPx;
+        // brain thinks in pond pixels. A carried fish's tail beats with how
+        // fast it is being moved, as a held fish's would.
+        const speed = swimmer.held
+          ? Math.min(CARRIED_TOP_BLS, distance(from, state.position) / seconds / swimmer.bodyPx)
+          : (state.speed * pace) / swimmer.bodyPx;
         const turnRate =
           swimmer.lastHeading === null
             ? 0
@@ -873,6 +1006,11 @@ export const createPondStage = (
         } else if (!animate) {
           remove(key, swimmer);
         } else if (!swimmer.exit) {
+          // A fish sold or released out of the visitor's hand slips out of it.
+          if (swimmer === holding) {
+            letGo();
+          }
+
           swimmer.exit = {
             heading: exitHeading(swimmer.motion.state.position, pond.width),
             // A small fish swims slower, so it is given longer to get out of sight.
@@ -902,6 +1040,94 @@ export const createPondStage = (
         const fromS = clock + noticeDelay(swimmer.traits, Math.random(), swimmer.eager);
         swimmer.curiosity = { point: spot, fromS, untilS: fromS + CURIOUS_S, arrived: false };
       }
+    },
+
+    pick(point) {
+      let best: { key: string; level: number; outside: number } | null = null;
+
+      for (const [key, swimmer] of swimmers) {
+        // A fish on its way out is no longer the visitor's to pick up.
+        if (swimmer.exit) {
+          continue;
+        }
+
+        const outside = outsideBody(point, swimmer.motion.outline(), swimmer.meshRatio);
+
+        if (outside > PICK_SLACK_PX) {
+          continue;
+        }
+
+        // Where fish overlap, the one nearer the surface is the one on top.
+        const better =
+          best === null ||
+          swimmer.level > best.level + 0.5 ||
+          (Math.abs(swimmer.level - best.level) <= 0.5 && outside < best.outside);
+
+        if (better) {
+          best = { key, level: swimmer.level, outside };
+        }
+      }
+
+      return best?.key ?? null;
+    },
+
+    inspect(key) {
+      const swimmer = swimmers.get(key);
+
+      if (!swimmer) {
+        return null;
+      }
+
+      const drawn = swimmer.motion.state.length * swimmer.meshRatio;
+
+      return {
+        traits: swimmer.traits,
+        pattern: swimmer.pattern,
+        lengthCm: swimmer.entry.lengthCm ?? (drawn / pond.fishLength) * CM_PER_FISH_LENGTH,
+        activity: activityOf(swimmer)
+      };
+    },
+
+    grab(key, point) {
+      const swimmer = swimmers.get(key);
+
+      if (!swimmer || swimmer.exit) {
+        return false;
+      }
+
+      letGo();
+      const nose = swimmer.motion.state.position;
+      swimmer.held = { nose, offset: { x: nose.x - point.x, y: nose.y - point.y } };
+      swimmer.curiosity = null;
+      holding = swimmer;
+
+      return true;
+    },
+
+    carry(point) {
+      if (!holding?.held) {
+        return;
+      }
+
+      const { offset } = holding.held;
+      holding.held = {
+        offset,
+        // Kept in the water: a fish carried past the edge would be dropped out of sight.
+        nose: insidePond(
+          { x: point.x + offset.x, y: point.y + offset.y },
+          pond,
+          pond.fishLength * CARRY_INSET
+        )
+      };
+    },
+
+    release() {
+      if (holding) {
+        const { position } = holding.motion.state;
+        hooks.onRipple?.(position.x, position.y, SET_DOWN_RIPPLE);
+      }
+
+      letGo();
     },
 
     dispose() {

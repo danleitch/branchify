@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPondStage, pondFor, type KoiEntry, type PondStage } from '../lib/koi3d';
 import type { OwnedGoldfish, OwnedKoi } from '../lib/koi-account';
-import { insidePond, isOpenWater } from '../lib/koi-attention';
-import { buildKoiRoster } from '../lib/koi-roster';
+import { distance, insidePond, isOpenWater, type PondPoint } from '../lib/koi-attention';
+import { fishCardFor, type FishCard as FishCardData } from '../lib/koi-inspect';
+import { buildKoiRoster, type KoiDescriptor } from '../lib/koi-roster';
 import { createWater } from '../lib/koi-water';
 import { createPondScenery } from '../lib/pond-scenery';
 import type { RecentBranch } from '../types';
+import { FishCard } from './fish-card';
 import { KoiBackground } from './koi-background';
 
 type Koi3dBackgroundProps = {
@@ -29,6 +31,16 @@ const SETTLE_STEP_S = 1 / 30;
 
 /** How far a handful of pellets spreads, as a fraction of a koi's length. */
 const HANDFUL_SPREAD = 0.4;
+
+/** How far a press on a fish has to move before it is a drag rather than a click, in pixels. */
+const DRAG_START_PX = 6;
+
+/** Classes on the root while the pointer is over a fish, and while one is being carried. */
+const OVER_FISH_CLASS = 'koi-over-fish';
+const CARRYING_CLASS = 'koi-carrying';
+
+/** A fish's card, and where it was clicked. */
+type OpenCard = { card: FishCardData; anchor: PondPoint };
 
 const prefersReducedMotion = (): boolean =>
   typeof window.matchMedia === 'function' &&
@@ -71,23 +83,39 @@ export const Koi3dBackground = ({
   // A reduced-motion pond is drawn once and left; a roster change redraws it.
   const redrawRef = useRef<(() => void) | null>(null);
   const [unavailable, setUnavailable] = useState(false);
+  const [open, setOpen] = useState<OpenCard | null>(null);
+  const [reducedMotion] = useState(prefersReducedMotion);
 
   // The same roster the 2D pond swims, so who is in the water and what colour
   // they wear is decided in one place whichever renderer draws them.
+  const roster = useMemo<KoiDescriptor[]>(
+    () => buildKoiRoster(recentBranches, baseFishCount, ownedKoi, ownedGoldfish),
+    [recentBranches, baseFishCount, ownedKoi, ownedGoldfish]
+  );
   const entries = useMemo<KoiEntry[]>(
     () =>
-      buildKoiRoster(recentBranches, baseFishCount, ownedKoi, ownedGoldfish).map((descriptor) => ({
+      roster.map((descriptor) => ({
         key: descriptor.key,
         seed: descriptor.seed,
         accent: descriptor.palette.marking,
         genome: descriptor.genome,
         lengthCm: descriptor.lengthCm
       })),
-    [recentBranches, baseFishCount, ownedKoi, ownedGoldfish]
+    [roster]
   );
 
   const entriesRef = useRef(entries);
   entriesRef.current = entries;
+  // Read when a fish is clicked, so the card is written from the pond as it is then.
+  const cardFromRef = useRef<(key: string) => FishCardData | null>(() => null);
+  cardFromRef.current = (key) => {
+    const descriptor = roster.find((candidate) => candidate.key === key);
+    const reading = stageRef.current?.inspect(key);
+
+    return descriptor && reading
+      ? fishCardFor(descriptor, { koi: ownedKoi ?? [], goldfish: ownedGoldfish ?? [] }, reading)
+      : null;
+  };
   const avoidElementRef = useRef(avoidRef);
   avoidElementRef.current = avoidRef;
 
@@ -97,8 +125,6 @@ export const Koi3dBackground = ({
     if (!canvas) {
       return;
     }
-
-    const reducedMotion = prefersReducedMotion();
 
     // The koi render transparent — upstream they composite over the host's
     // water — so the pond is painted on 2D canvases either side of them: the
@@ -172,6 +198,134 @@ export const Koi3dBackground = ({
     measureIsland();
     stage.setRoster(entriesRef.current);
 
+    const pointOf = (event: { clientX: number; clientY: number }): PondPoint => ({
+      x: event.clientX,
+      y: event.clientY
+    });
+    const root = document.documentElement;
+
+    /** A press on a fish, which becomes a click or a carry depending on whether it moves. */
+    let press: { pointer: number; key: string; from: PondPoint; carrying: boolean } | null = null;
+    /** Whether the click that ends this press was on a fish, and so is not a touch on the water. */
+    let pressedFish = false;
+
+    const openCard = (key: string, anchor: PondPoint): void => {
+      const card = cardFromRef.current(key);
+      setOpen(card ? { card, anchor } : null);
+    };
+
+    const handlePointerDown = (event: PointerEvent): void => {
+      pressedFish = false;
+
+      if (event.button !== 0 || !isOpenWater(event.target)) {
+        return;
+      }
+
+      const key = stage.pick(pointOf(event));
+
+      if (key === null) {
+        return;
+      }
+
+      pressedFish = true;
+      press = { pointer: event.pointerId, key, from: pointOf(event), carrying: false };
+    };
+
+    const handlePointerMove = (event: PointerEvent): void => {
+      if (press && event.pointerId === press.pointer) {
+        // The button came up somewhere this page never heard about, off the
+        // window or behind another one; the fish is set down where it is.
+        if (event.buttons === 0) {
+          endPress(event, true);
+          return;
+        }
+
+        const point = pointOf(event);
+
+        // A still pond has no one to carry a fish off; it can only be looked at.
+        if (!press.carrying && !reducedMotion && distance(point, press.from) > DRAG_START_PX) {
+          press.carrying = stage.grab(press.key, press.from);
+
+          if (press.carrying) {
+            setOpen(null);
+            root.classList.add(CARRYING_CLASS);
+          }
+        }
+
+        if (press.carrying) {
+          stage.carry(point);
+        }
+
+        return;
+      }
+
+      // Only a mouse hovers; a finger is either on the glass or it isn't.
+      if (event.pointerType === 'mouse') {
+        root.classList.toggle(
+          OVER_FISH_CLASS,
+          isOpenWater(event.target) && stage.pick(pointOf(event)) !== null
+        );
+      }
+    };
+
+    const endPress = (event: PointerEvent, cancelled: boolean): void => {
+      if (!press || event.pointerId !== press.pointer) {
+        return;
+      }
+
+      if (press.carrying) {
+        stage.release();
+        root.classList.remove(CARRYING_CLASS);
+      } else if (!cancelled) {
+        openCard(press.key, pointOf(event));
+      }
+
+      press = null;
+    };
+
+    const handlePointerUp = (event: PointerEvent): void => endPress(event, false);
+    const handlePointerCancel = (event: PointerEvent): void => endPress(event, true);
+
+    // A mouse pressed on a fish is picking it up, not starting a text selection
+    // that would sweep across the form as the fish is carried over it.
+    const handleMouseDown = (event: MouseEvent): void => {
+      if (pressedFish) {
+        event.preventDefault();
+      }
+    };
+
+    // A finger on a fish is picking it up, not scrolling the page; this has to
+    // be said on touchstart, and only a listener that isn't passive may say it.
+    const handleTouchStart = (event: TouchEvent): void => {
+      const touch = event.touches[0];
+
+      if (
+        event.touches.length === 1 &&
+        touch &&
+        isOpenWater(event.target) &&
+        stage.pick(pointOf(touch)) !== null
+      ) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerCancel);
+    window.addEventListener('touchstart', handleTouchStart, { passive: false });
+
+    const removePointerListeners = (): void => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerCancel);
+      window.removeEventListener('touchstart', handleTouchStart);
+      root.classList.remove(OVER_FISH_CLASS, CARRYING_CLASS);
+    };
+
     // The panel grows and shrinks with the recent list, so its rect is watched
     // rather than read per frame, which would force a layout every tick.
     const panel = avoidElementRef.current?.current;
@@ -194,9 +348,20 @@ export const Koi3dBackground = ({
       redrawRef.current = settle;
       window.addEventListener('resize', resize);
 
+      // Nothing but the card to open on a click; a still pond sends out no rings.
+      const handleStillClick = (event: MouseEvent): void => {
+        if (!pressedFish && isOpenWater(event.target)) {
+          setOpen(null);
+        }
+      };
+
+      window.addEventListener('click', handleStillClick);
+
       return () => {
         redrawRef.current = null;
         window.removeEventListener('resize', resize);
+        window.removeEventListener('click', handleStillClick);
+        removePointerListeners();
         observer?.disconnect();
         stage.dispose();
         stageRef.current = null;
@@ -204,11 +369,14 @@ export const Koi3dBackground = ({
     }
 
     // A touch on open water: a ring where it landed, and the koi come to see.
+    // A click that picked up or looked at a fish was the fish's, not the water's.
     const handleClick = (event: MouseEvent): void => {
-      if (event.button !== 0 || !isOpenWater(event.target)) {
+      if (event.button !== 0 || !isOpenWater(event.target) || pressedFish) {
         return;
       }
 
+      // Touching the water elsewhere puts a fish's card away.
+      setOpen(null);
       surface.ripple(event.clientX, event.clientY, 1);
       stage.attend({ x: event.clientX, y: event.clientY });
     };
@@ -269,16 +437,22 @@ export const Koi3dBackground = ({
       window.removeEventListener('click', handleClick);
       window.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('visibilitychange', handleVisibility);
+      removePointerListeners();
       observer?.disconnect();
       stage.dispose();
       stageRef.current = null;
     };
-  }, []);
+    // The motion preference is read once, on the first render, so this runs once too.
+  }, [reducedMotion]);
 
   // Branches coming and going must not restart the loop or move the other koi.
   useEffect(() => {
     stageRef.current?.setRoster(entries);
     redrawRef.current?.();
+    // A fish that has left the pond takes its card with it.
+    setOpen((current) =>
+      current && entries.some((entry) => entry.key === current.card.key) ? current : null
+    );
   }, [entries]);
 
   if (unavailable) {
@@ -298,6 +472,14 @@ export const Koi3dBackground = ({
       <canvas ref={waterRef} className="koi-pond koi-water" aria-hidden="true" />
       <canvas ref={canvasRef} className="koi-pond" aria-hidden="true" />
       <canvas ref={surfaceRef} className="koi-pond koi-surface" aria-hidden="true" />
+      {open && (
+        <FishCard
+          card={open.card}
+          anchor={open.anchor}
+          canDrag={!reducedMotion}
+          onClose={() => setOpen(null)}
+        />
+      )}
     </>
   );
 };
