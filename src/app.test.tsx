@@ -486,6 +486,28 @@ describe('App', () => {
         '2'
       );
     });
+
+    it('has nothing to reset while the lilies are where the pond put them', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openSettings(user);
+
+      expect(within(dialog).getByRole('button', { name: 'Reset lily positions' })).toBeDisabled();
+    });
+
+    it('puts dragged lilies back where the pond put them', async () => {
+      window.localStorage.setItem('branchify-koi-lilies', JSON.stringify([{ x: 0.5, y: 0.5 }]));
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openSettings(user);
+      const reset = within(dialog).getByRole('button', { name: 'Reset lily positions' });
+      await user.click(reset);
+
+      expect(reset).toBeDisabled();
+      expect(window.localStorage.getItem('branchify-koi-lilies')).toBe('[]');
+    });
   });
 
   describe('koi market', () => {
