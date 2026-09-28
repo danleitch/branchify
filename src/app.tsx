@@ -23,17 +23,20 @@ import {
   BASE_FISH_STORAGE_KEY,
   EMPTY_FORM,
   FORM_STORAGE_KEY,
+  LILY_PLACEMENTS_STORAGE_KEY,
   PARTICLES_STORAGE_KEY,
   SETTINGS_STORAGE_KEY,
   parseBackground,
   parseBaseFish,
   parseForm,
+  parseLilyPlacements,
   parseParticleSettings,
   parseSettings,
   readStorage,
   writeStorage
 } from './lib/storage';
 import type { ParticleSettings } from './lib/particles';
+import type { LilyPlacements } from './lib/pond-decor';
 import type {
   BackgroundStyle,
   BranchSeparators,
@@ -103,6 +106,9 @@ export const App = (): JSX.Element => {
   const [baseFishCount, setBaseFishCount] = useState<number>(() =>
     parseBaseFish(readStorage(BASE_FISH_STORAGE_KEY))
   );
+  const [lilyPlacements, setLilyPlacements] = useState<LilyPlacements>(() =>
+    parseLilyPlacements(readStorage(LILY_PLACEMENTS_STORAGE_KEY))
+  );
   const [particleSettings, setParticleSettings] = useState<ParticleSettings>(() =>
     parseParticleSettings(readStorage(PARTICLES_STORAGE_KEY))
   );
@@ -143,6 +149,10 @@ export const App = (): JSX.Element => {
   useEffect(() => {
     writeStorage(BASE_FISH_STORAGE_KEY, String(baseFishCount));
   }, [baseFishCount]);
+
+  useEffect(() => {
+    writeStorage(LILY_PLACEMENTS_STORAGE_KEY, JSON.stringify(lilyPlacements));
+  }, [lilyPlacements]);
 
   useEffect(() => {
     writeStorage(PARTICLES_STORAGE_KEY, JSON.stringify(particleSettings));
@@ -241,6 +251,8 @@ export const App = (): JSX.Element => {
             ownedKoi={market.account.owned}
             ownedGoldfish={market.account.goldfish}
             avoidRef={panelRef}
+            lilyPlacements={lilyPlacements}
+            onLilyPlacementsChange={setLilyPlacements}
           />
         </Suspense>
       )}
@@ -316,6 +328,8 @@ export const App = (): JSX.Element => {
             onBackgroundChange={setBackground}
             baseFishCount={baseFishCount}
             onBaseFishCountChange={setBaseFishCount}
+            liliesMoved={lilyPlacements.some(Boolean)}
+            onResetLilies={() => setLilyPlacements([])}
             marketKoiCount={market.account.owned.length}
             onOpenMarket={() => {
               setSettingsOpen(false);

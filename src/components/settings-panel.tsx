@@ -25,6 +25,9 @@ type SettingsPanelProps = {
   /** How many koi swim at minimum; more join as branches are saved, up to the pond's cap. */
   baseFishCount: number;
   onBaseFishCountChange: (count: number) => void;
+  /** Whether any lily has been dragged away from where the pond put it. */
+  liliesMoved?: boolean;
+  onResetLilies?: () => void;
   /** How many market koi the visitor owns; while there are any, they are the whole pond. */
   marketKoiCount?: number;
   onOpenMarket?: () => void;
@@ -43,6 +46,8 @@ export const SettingsPanel = ({
   onBackgroundChange,
   baseFishCount,
   onBaseFishCountChange,
+  liliesMoved = false,
+  onResetLilies,
   marketKoiCount = 0,
   onOpenMarket,
   onOpenParticles,
@@ -209,7 +214,8 @@ export const SettingsPanel = ({
           ))}
           <p className="settings-hint">
             The koi pond swims one fish per recent branch, each in its own colour, or the koi you
-            buy at the market. Click the water and they come to look; right-click to feed them.
+            buy at the market. Click the water and they come to look; right-click to feed them; drag
+            a lily pad to move it.
           </p>
 
           {background === 'koi' && (
@@ -235,6 +241,16 @@ export const SettingsPanel = ({
                     ? `Your ${marketKoiCount} market koi fill the pond, so branch koi and residents are resting until you release them.`
                     : `The pond never drops below this many. Recent branches fill in past it, up to ${MAX_BASE_FISH} at once.`}
               </p>
+              {onResetLilies && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={!liliesMoved}
+                  onClick={onResetLilies}
+                >
+                  Reset lily positions
+                </button>
+              )}
               {onOpenMarket && (
                 <button type="button" className="btn btn-secondary" onClick={onOpenMarket}>
                   Open the koi market

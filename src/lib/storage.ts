@@ -9,6 +9,7 @@ import type {
 import { AI_PROVIDERS } from './ai-handoff';
 import { DEFAULT_NAMING_SETTINGS, sanitizeBranchType } from './branch-utils';
 import { DEFAULT_BASE_FISH, MAX_BASE_FISH, MIN_BASE_FISH } from './koi';
+import { sanitizeLilyPlacements, type LilyPlacements } from './pond-decor';
 import {
   DEFAULT_PARTICLE_SETTINGS,
   sanitizeParticleSettings,
@@ -25,6 +26,8 @@ export const BACKGROUND_STORAGE_KEY = 'branchify-background';
 export const BASE_FISH_STORAGE_KEY = 'branchify-koi-base-fish';
 // How the particles background looks; like the pond's fish, nothing to do with naming.
 export const PARTICLES_STORAGE_KEY = 'branchify-particles';
+// Where the visitor has dragged the pond's lilies, as fractions of the viewport.
+export const LILY_PLACEMENTS_STORAGE_KEY = 'branchify-koi-lilies';
 // Matches the pond's own cap, so a base fish count of 10 has ten real branches
 // to promote out of "resident" and into "yours" before the koi runs out.
 export const MAX_RECENT_BRANCHES = MAX_BASE_FISH;
@@ -216,5 +219,18 @@ export const parseParticleSettings = (raw: string | null): ParticleSettings => {
     return sanitizeParticleSettings(JSON.parse(raw));
   } catch {
     return DEFAULT_PARTICLE_SETTINGS;
+  }
+};
+
+/** Keeps the placements that still make sense; anything else leaves its lily where the pond put it. */
+export const parseLilyPlacements = (raw: string | null): LilyPlacements => {
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    return sanitizeLilyPlacements(JSON.parse(raw));
+  } catch {
+    return [];
   }
 };

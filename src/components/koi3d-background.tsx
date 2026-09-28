@@ -5,7 +5,9 @@ import { distance, insidePond, isOpenWater, type PondPoint } from '../lib/koi-at
 import { fishCardFor, type FishCard as FishCardData } from '../lib/koi-inspect';
 import { buildKoiRoster, type KoiDescriptor } from '../lib/koi-roster';
 import { createWater } from '../lib/koi-water';
-import { createPondScenery } from '../lib/pond-scenery';
+import { attachLilyDragging } from '../lib/lily-drag';
+import type { LilyPlacements } from '../lib/pond-decor';
+import { createPondScenery, type PondScenery } from '../lib/pond-scenery';
 import type { RecentBranch } from '../types';
 import { FishCard } from './fish-card';
 import { KoiBackground } from './koi-background';
@@ -20,7 +22,14 @@ type Koi3dBackgroundProps = {
   ownedGoldfish?: readonly OwnedGoldfish[];
   /** The panel, which the koi lean away from so they stay in view around it. */
   avoidRef?: RefObject<HTMLElement>;
+  /** Where the visitor has floated the lilies to. */
+  lilyPlacements?: LilyPlacements;
+  /** A lily has been dragged somewhere new. */
+  onLilyPlacementsChange?: (placements: LilyPlacements) => void;
 };
+
+/** Every lily where the pond put it; one array, so a default prop doesn't relay the pond each render. */
+const NO_PLACEMENTS: LilyPlacements = [];
 
 /** Retina is honoured up to a point for the water; the koi renderer sets its own. */
 const MAX_PIXEL_RATIO = 2;
@@ -74,12 +83,17 @@ export const Koi3dBackground = ({
   baseFishCount,
   ownedKoi,
   ownedGoldfish,
-  avoidRef
+  avoidRef,
+  lilyPlacements = NO_PLACEMENTS,
+  onLilyPlacementsChange
 }: Koi3dBackgroundProps): JSX.Element => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const waterRef = useRef<HTMLCanvasElement>(null);
   const surfaceRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<PondStage | null>(null);
+  const sceneryRef = useRef<PondScenery | null>(null);
+  // Paints the water and surface again without moving the koi; a still pond needs it after a lily moves.
+  const repaintRef = useRef<(() => void) | null>(null);
   // A reduced-motion pond is drawn once and left; a roster change redraws it.
   const redrawRef = useRef<(() => void) | null>(null);
   const [unavailable, setUnavailable] = useState(false);
@@ -118,6 +132,10 @@ export const Koi3dBackground = ({
   };
   const avoidElementRef = useRef(avoidRef);
   avoidElementRef.current = avoidRef;
+  const lilyPlacementsRef = useRef(lilyPlacements);
+  lilyPlacementsRef.current = lilyPlacements;
+  const onLilyPlacementsChangeRef = useRef(onLilyPlacementsChange);
+  onLilyPlacementsChangeRef.current = onLilyPlacementsChange;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -132,6 +150,7 @@ export const Koi3dBackground = ({
     const water = createWater();
     const scenery = createPondScenery();
     const { surface } = scenery;
+    scenery.placeLilies(lilyPlacementsRef.current);
     let waterCtx: CanvasRenderingContext2D | null = null;
     let surfaceCtx: CanvasRenderingContext2D | null = null;
     let fishLength = 0;
@@ -151,6 +170,7 @@ export const Koi3dBackground = ({
     }
 
     stageRef.current = stage;
+    sceneryRef.current = scenery;
 
     const measureIsland = (): void => {
       const element = avoidElementRef.current?.current;
@@ -198,11 +218,20 @@ export const Koi3dBackground = ({
     measureIsland();
     stage.setRoster(entriesRef.current);
 
+    const dragging = attachLilyDragging(scenery, {
+      onMove: () => repaintRef.current?.(),
+      onDrop: (placements) => onLilyPlacementsChangeRef.current?.(placements)
+    });
+
     const pointOf = (event: { clientX: number; clientY: number }): PondPoint => ({
       x: event.clientX,
       y: event.clientY
     });
     const root = document.documentElement;
+
+    // The lilies float over the koi, so a press on a pad is the pad's to move.
+    const fishAt = (point: PondPoint): string | null =>
+      scenery.lilyAt(point.x, point.y) === null ? stage.pick(point) : null;
 
     /** A press on a fish, which becomes a click or a carry depending on whether it moves. */
     let press: { pointer: number; key: string; from: PondPoint; carrying: boolean } | null = null;
@@ -221,7 +250,7 @@ export const Koi3dBackground = ({
         return;
       }
 
-      const key = stage.pick(pointOf(event));
+      const key = fishAt(pointOf(event));
 
       if (key === null) {
         return;
@@ -263,7 +292,7 @@ export const Koi3dBackground = ({
       if (event.pointerType === 'mouse') {
         root.classList.toggle(
           OVER_FISH_CLASS,
-          isOpenWater(event.target) && stage.pick(pointOf(event)) !== null
+          isOpenWater(event.target) && fishAt(pointOf(event)) !== null
         );
       }
     };
@@ -303,7 +332,7 @@ export const Koi3dBackground = ({
         event.touches.length === 1 &&
         touch &&
         isOpenWater(event.target) &&
-        stage.pick(pointOf(touch)) !== null
+        fishAt(pointOf(touch)) !== null
       ) {
         event.preventDefault();
       }
@@ -346,6 +375,7 @@ export const Koi3dBackground = ({
 
       settle();
       redrawRef.current = settle;
+      repaintRef.current = () => paint(SETTLE_STEPS * SETTLE_STEP_S);
       window.addEventListener('resize', resize);
 
       // Nothing but the card to open on a click; a still pond sends out no rings.
@@ -359,6 +389,9 @@ export const Koi3dBackground = ({
 
       return () => {
         redrawRef.current = null;
+        repaintRef.current = null;
+        sceneryRef.current = null;
+        dragging.detach();
         window.removeEventListener('resize', resize);
         window.removeEventListener('click', handleStillClick);
         removePointerListeners();
@@ -371,7 +404,13 @@ export const Koi3dBackground = ({
     // A touch on open water: a ring where it landed, and the koi come to see.
     // A click that picked up or looked at a fish was the fish's, not the water's.
     const handleClick = (event: MouseEvent): void => {
-      if (event.button !== 0 || !isOpenWater(event.target) || pressedFish) {
+      // Putting a lily down is not a touch on the water either.
+      if (
+        event.button !== 0 ||
+        !isOpenWater(event.target) ||
+        dragging.claimsClick() ||
+        pressedFish
+      ) {
         return;
       }
 
@@ -439,11 +478,19 @@ export const Koi3dBackground = ({
       document.removeEventListener('visibilitychange', handleVisibility);
       removePointerListeners();
       observer?.disconnect();
+      dragging.detach();
+      sceneryRef.current = null;
       stage.dispose();
       stageRef.current = null;
     };
     // The motion preference is read once, on the first render, so this runs once too.
   }, [reducedMotion]);
+
+  // A reset, or a placement saved elsewhere, puts the lilies where they now belong.
+  useEffect(() => {
+    sceneryRef.current?.placeLilies(lilyPlacements);
+    repaintRef.current?.();
+  }, [lilyPlacements]);
 
   // Branches coming and going must not restart the loop or move the other koi.
   useEffect(() => {
@@ -463,6 +510,8 @@ export const Koi3dBackground = ({
         ownedKoi={ownedKoi}
         ownedGoldfish={ownedGoldfish}
         avoidRef={avoidRef}
+        lilyPlacements={lilyPlacements}
+        onLilyPlacementsChange={onLilyPlacementsChange}
       />
     );
   }

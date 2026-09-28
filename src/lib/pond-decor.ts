@@ -34,6 +34,15 @@ export type Lily = {
 
 export type PondDecor = { stones: Stone[]; lilies: Lily[] };
 
+/** Where a visitor has moved a lily to, as fractions of the viewport. */
+export type LilyPlacement = { x: number; y: number };
+
+/**
+ * The visitor's placements, one slot per lily in the pond's order; a missing
+ * or null slot leaves that lily where the pond put it.
+ */
+export type LilyPlacements = readonly (LilyPlacement | null)[];
+
 /**
  * Where the furniture sits, as fractions of the viewport, and how big it is
  * against a nominal koi's length. The panel sits in the middle, so everything
@@ -55,8 +64,38 @@ const LILY_SPOTS = [
   { x: 0.94, y: 0.62, size: 0.19, bloom: null }
 ] as const;
 
-/** Lays the furniture out for a viewport; the same size always gives the same pond. */
-export const layoutDecor = (width: number, height: number, fishLength: number): PondDecor => {
+export const LILY_COUNT = LILY_SPOTS.length;
+
+const clampUnit = (value: number): number => Math.min(Math.max(value, 0), 1);
+
+/** Keeps whatever still makes sense from stored placements: fractions, in the pond, one per lily. */
+export const sanitizeLilyPlacements = (value: unknown): LilyPlacements => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .slice(0, LILY_COUNT)
+    .map((item: unknown) =>
+      typeof item === 'object' &&
+      item !== null &&
+      Number.isFinite((item as LilyPlacement).x) &&
+      Number.isFinite((item as LilyPlacement).y)
+        ? { x: clampUnit((item as LilyPlacement).x), y: clampUnit((item as LilyPlacement).y) }
+        : null
+    );
+};
+
+/**
+ * Lays the furniture out for a viewport; the same size always gives the same
+ * pond. Lilies the visitor has moved go where they were put instead.
+ */
+export const layoutDecor = (
+  width: number,
+  height: number,
+  fishLength: number,
+  placements: LilyPlacements = []
+): PondDecor => {
   const random = createRandom(0x9e3779b9);
 
   return {
@@ -68,8 +107,8 @@ export const layoutDecor = (width: number, height: number, fishLength: number): 
       seed: 101 + index * 7
     })),
     lilies: LILY_SPOTS.map((spot, index) => ({
-      x: spot.x * width,
-      y: spot.y * height,
+      x: (placements[index]?.x ?? spot.x) * width,
+      y: (placements[index]?.y ?? spot.y) * height,
       radius: spot.size * fishLength,
       rotation: random() * Math.PI * 2,
       notch: 0.32 + random() * 0.18,
@@ -188,9 +227,10 @@ export const renderBed = (
   decor: PondDecor,
   width: number,
   height: number,
-  ratio: number
+  ratio: number,
+  /** A bed painted before, to paint over rather than making a new one. */
+  canvas: HTMLCanvasElement = document.createElement('canvas')
 ): HTMLCanvasElement | null => {
-  const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(width * ratio));
   canvas.height = Math.max(1, Math.round(height * ratio));
   const ctx = canvas.getContext('2d');
