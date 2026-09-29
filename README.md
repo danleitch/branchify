@@ -96,9 +96,18 @@ swim over one and under the other.
   drift for about thirty seconds before sinking. Hungry koi come for the nearest
   one, rise, and take it with a splash. Chagoi are first to the food, as they
   are in real ponds.
+- **Click a fish** to open its card: its name and what it means, its variety
+  (with the kanji and the show family it is judged in), any traits it was born
+  with, its personality, what it is doing right now, how big it is and could
+  grow, and what it is worth. A bought fish also shows what you paid and how
+  long it has been in the pond; a branch koi or a resident is named and
+  appraised as its variety, and a branch koi shows the branch it swims for.
+- **Drag a fish** to carry it somewhere else in the pond. It rises toward the
+  surface while you hold it, and swims calmly on from wherever you set it down.
 
 Clicks on the panel or any dialog are left alone, and the context menu is only
-replaced over open water. With reduced motion on, the pond stays still.
+replaced over open water. With reduced motion on, the pond stays still: fish
+can still be clicked for their card, but not carried.
 
 ### Real varieties
 
@@ -203,6 +212,7 @@ src/
     koi-portrait.ts           # Photographs koi for the market's cards
     koi3d.ts                  # The pond stage: arrivals, departures, the panel
     koi-attention.ts          # How koi notice a touch on the water, and food
+    koi-inspect.ts            # What a clicked fish's card says about it
     pond-decor.ts             # Stones on the bed, lilies on the surface
     pond-surface.ts           # Ripples and floating pellets
   vendor/koi-pond/            # The hyperfrontend koi, untouched (see its README)

@@ -8,6 +8,7 @@ import {
   hasLeftPond,
   inOpenWater,
   motionFor,
+  outsideBody,
   pondFor,
   profileFor,
   restingPace,
@@ -358,5 +359,42 @@ describe('curiosity', () => {
   it('comes over at its own easy pace, never at a dash', () => {
     // A bolting koi reaches nearly two body lengths a second; a curious one cruises.
     expect(investigate('feat/calm').fastest).toBeLessThan(1.2 * POND.fishLength);
+  });
+});
+
+describe('outsideBody', () => {
+  // A straight fish lying along the x axis, nose at the origin.
+  const outline = {
+    spine: [
+      { x: 0, y: 0 },
+      { x: 50, y: 0 },
+      { x: 100, y: 0 }
+    ],
+    girth: [4, 12, 2]
+  };
+
+  it('counts a point on the body as on it', () => {
+    expect(outsideBody({ x: 40, y: 5 }, outline, 1)).toBeLessThanOrEqual(0);
+  });
+
+  it('measures how far off the body a point lies', () => {
+    expect(outsideBody({ x: 50, y: 32 }, outline, 1)).toBeCloseTo(20);
+    expect(outsideBody({ x: -30, y: 0 }, outline, 1)).toBeCloseTo(18);
+  });
+
+  it('shrinks the outline toward the nose for a fish drawn smaller than it swims', () => {
+    // The tail end is off a half-size fish, though it would be on a full one.
+    expect(outsideBody({ x: 90, y: 0 }, outline, 1)).toBeLessThanOrEqual(0);
+    expect(outsideBody({ x: 90, y: 0 }, outline, 0.5)).toBeGreaterThan(30);
+  });
+
+  it('finds a swimming koi where its brain says it is', () => {
+    const { motion } = createKoiBrain(entry('feat/BRF-1-add-auth'), POND, () => null);
+    const nose = motion.state.position;
+
+    expect(outsideBody(nose, motion.outline(), 1)).toBeLessThanOrEqual(0);
+    expect(outsideBody({ x: nose.x + 400, y: nose.y + 400 }, motion.outline(), 1)).toBeGreaterThan(
+      100
+    );
   });
 });
