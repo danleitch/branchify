@@ -102,6 +102,11 @@ swim over one and under the other.
   grow, and what it is worth. A bought fish also shows what you paid and how
   long it has been in the pond; a branch koi or a resident is named and
   appraised as its variety, and a branch koi shows the branch it swims for.
+- **Click a fish's name** on its card to rename it. Enter or clicking away saves,
+  Escape cancels, and names are tidied and capped at 24 characters. A fish from
+  the market is renamed on the market's books, so the market and the pond agree;
+  a branch koi or resident's name is kept in this browser, against its place in
+  the pond.
 - **Drag a fish** to carry it somewhere else in the pond. It rises toward the
   surface while you hold it, and swims calmly on from wherever you set it down.
 

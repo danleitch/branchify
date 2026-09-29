@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPondStage, pondFor, type KoiEntry, type PondStage } from '../lib/koi3d';
 import type { OwnedGoldfish, OwnedKoi } from '../lib/koi-account';
 import { distance, insidePond, isOpenWater, type PondPoint } from '../lib/koi-attention';
+import { cleanFishName } from '../lib/fish-name';
 import { fishCardFor, type FishCard as FishCardData } from '../lib/koi-inspect';
+import { nameMeaning } from '../lib/koi-market';
+import type { FishNames } from '../lib/storage';
 import { buildKoiRoster, type KoiDescriptor } from '../lib/koi-roster';
 import { createWater } from '../lib/koi-water';
 import { attachLilyDragging } from '../lib/lily-drag';
@@ -26,6 +29,10 @@ type Koi3dBackgroundProps = {
   lilyPlacements?: LilyPlacements;
   /** A lily has been dragged somewhere new. */
   onLilyPlacementsChange?: (placements: LilyPlacements) => void;
+  /** Names the visitor has given branch koi and residents, by pond key. */
+  fishNames?: FishNames;
+  /** The visitor renamed a fish, by its pond key; the name is already tidied. */
+  onRenameFish?: (key: string, name: string) => void;
 };
 
 /** Every lily where the pond put it; one array, so a default prop doesn't relay the pond each render. */
@@ -85,7 +92,9 @@ export const Koi3dBackground = ({
   ownedGoldfish,
   avoidRef,
   lilyPlacements = NO_PLACEMENTS,
-  onLilyPlacementsChange
+  onLilyPlacementsChange,
+  fishNames,
+  onRenameFish
 }: Koi3dBackgroundProps): JSX.Element => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const waterRef = useRef<HTMLCanvasElement>(null);
@@ -127,7 +136,11 @@ export const Koi3dBackground = ({
     const reading = stageRef.current?.inspect(key);
 
     return descriptor && reading
-      ? fishCardFor(descriptor, { koi: ownedKoi ?? [], goldfish: ownedGoldfish ?? [] }, reading)
+      ? fishCardFor(
+          descriptor,
+          { koi: ownedKoi ?? [], goldfish: ownedGoldfish ?? [], names: fishNames },
+          reading
+        )
       : null;
   };
   const avoidElementRef = useRef(avoidRef);
@@ -502,6 +515,18 @@ export const Koi3dBackground = ({
     );
   }, [entries]);
 
+  // The card shows the new name at once; the pond's state catches up behind it.
+  const renameOpenFish = (raw: string): void => {
+    const name = cleanFishName(raw);
+
+    if (!name || !open) {
+      return;
+    }
+
+    onRenameFish?.(open.card.key, name);
+    setOpen({ ...open, card: { ...open.card, name, nameMeaning: nameMeaning(name) } });
+  };
+
   if (unavailable) {
     return (
       <KoiBackground
@@ -526,6 +551,7 @@ export const Koi3dBackground = ({
           card={open.card}
           anchor={open.anchor}
           canDrag={!reducedMotion}
+          onRename={onRenameFish && renameOpenFish}
           onClose={() => setOpen(null)}
         />
       )}

@@ -15,6 +15,7 @@
  */
 import type { KoiTraits } from '../vendor/koi-pond/model/types';
 import { formatCm, growthOf, koiAdultCm, koiAgeClass, ageAtLength } from './fish-growth';
+import type { FishSpecies } from './fish-growth';
 import { goldfishOf, isGoldfish } from './goldfish';
 import type { OwnedGoldfish, OwnedKoi } from './koi-account';
 import { koiRarity, koiTitle, varietyOf, type FishGenome, type KoiGenome } from './koi-genome';
@@ -148,6 +149,21 @@ const traitsOf = (genome: KoiGenome): FishCard['traits'] =>
 const listingId = (key: string, prefix: string): string | null =>
   key.startsWith(prefix) ? key.slice(prefix.length) : null;
 
+/**
+ * Which of the visitor's market fish a pond key stands for, or null for a
+ * branch koi or resident, whose names are kept apart from the market's.
+ */
+export const marketFishOf = (key: string): { species: FishSpecies; id: string } | null => {
+  const koi = listingId(key, 'market:');
+  const goldfish = listingId(key, 'goldfish:');
+
+  return koi !== null
+    ? { species: 'koi', id: koi }
+    : goldfish !== null
+      ? { species: 'goldfish', id: goldfish }
+      : null;
+};
+
 const koiCard = (
   descriptor: KoiDescriptor,
   koi: OwnedKoi,
@@ -225,12 +241,16 @@ const goldfishCard = (
  * A branch koi or a resident: named off its seed, and appraised as the
  * variety its markings are drawn from, at the size it swims at.
  */
-const pondKoiCard = (descriptor: KoiDescriptor, reading: FishReading): FishCard => {
+const pondKoiCard = (
+  descriptor: KoiDescriptor,
+  reading: FishReading,
+  givenName: string | undefined
+): FishCard => {
   const variety =
     findVariety(PATTERN_VARIETIES[reading.pattern] ?? 'kohaku') ?? findVariety('kohaku')!;
   const genome: KoiGenome = { variety: variety.id, modifiers: [], seed: descriptor.seed };
   const adultCm = Math.max(koiAdultCm(variety.id, descriptor.seed), reading.lengthCm);
-  const name = pondNameFor(descriptor.seed);
+  const name = givenName ?? pondNameFor(descriptor.seed);
   // A branch koi is keyed by its branch; a market fish's label is only its name.
   const branch = descriptor.label === descriptor.key ? descriptor.label : null;
 
@@ -271,15 +291,22 @@ const pondKoiCard = (descriptor: KoiDescriptor, reading: FishReading): FishCard 
  */
 export const fishCardFor = (
   descriptor: KoiDescriptor,
-  owned: { koi: readonly OwnedKoi[]; goldfish: readonly OwnedGoldfish[] },
+  owned: {
+    koi: readonly OwnedKoi[];
+    goldfish: readonly OwnedGoldfish[];
+    /** Names the visitor has given branch koi and residents, by pond key. */
+    names?: Readonly<Record<string, string>>;
+  },
   reading: FishReading,
   now: Date = new Date()
 ): FishCard => {
-  const koiId = listingId(descriptor.key, 'market:');
-  const goldfishId = listingId(descriptor.key, 'goldfish:');
-  const koi = koiId === null ? undefined : owned.koi.find((fish) => fish.id === koiId);
+  const market = marketFishOf(descriptor.key);
+  const koi =
+    market?.species === 'koi' ? owned.koi.find((fish) => fish.id === market.id) : undefined;
   const goldfish =
-    goldfishId === null ? undefined : owned.goldfish.find((fish) => fish.id === goldfishId);
+    market?.species === 'goldfish'
+      ? owned.goldfish.find((fish) => fish.id === market.id)
+      : undefined;
 
   if (koi) {
     return koiCard(descriptor, koi, reading, now);
@@ -289,7 +316,7 @@ export const fishCardFor = (
     return goldfishCard(descriptor, goldfish, reading, now);
   }
 
-  return pondKoiCard(descriptor, reading);
+  return pondKoiCard(descriptor, reading, owned.names?.[descriptor.key]);
 };
 
 /** What a fish is up to, the way the card says it. */

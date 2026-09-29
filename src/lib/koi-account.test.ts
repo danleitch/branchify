@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { POND_YEAR_DAYS, growthOf } from './fish-growth';
-import type { GoldfishListing } from './goldfish-market';
+import { goldfishCounter, type GoldfishListing } from './goldfish-market';
 import { MAX_GOLDFISH, MAX_KOI } from './koi';
 import {
   COINS_PER_BRANCH,
@@ -19,6 +19,7 @@ import {
   refundFor,
   releaseGoldfish,
   releaseKoi,
+  renameFish,
   restockTank,
   rewardBranch,
   rewardsLeftToday,
@@ -451,5 +452,49 @@ describe('parseAccount', () => {
 
     expect(account.owned).toHaveLength(MAX_KOI);
     expect(account.goldfish).toHaveLength(MAX_GOLDFISH);
+  });
+});
+
+describe('renameFish', () => {
+  const stocked = (): KoiAccount => {
+    const [listing] = koiTank('2026-09-23');
+    return buyListing(
+      { ...createAccount([], '2026-09-23'), coins: 100000 },
+      listing!,
+      new Date('2026-09-23T12:00:00Z')
+    ).account;
+  };
+
+  it('renames a koi the visitor owns, and only that one', () => {
+    const account = stocked();
+    const renamed = renameFish(account, 'koi', account.owned[0]!.id, '  Sir   Splash ');
+
+    expect(renamed.owned[0]!.name).toBe('Sir Splash');
+    expect(renamed.owned[0]!.genome).toBe(account.owned[0]!.genome);
+    expect(renamed.coins).toBe(account.coins);
+  });
+
+  it('renames a goldfish', () => {
+    const [listing] = goldfishCounter('2026-09-23');
+    const account = buyGoldfish(
+      createAccount([], '2026-09-23'),
+      listing!,
+      new Date('2026-09-23T12:00:00Z')
+    ).account;
+
+    expect(
+      renameFish(account, 'goldfish', account.goldfish[0]!.id, 'Bubbles').goldfish[0]!.name
+    ).toBe('Bubbles');
+  });
+
+  it('leaves the account alone for a blank name, an unknown fish, or the same name', () => {
+    const account = stocked();
+    const id = account.owned[0]!.id;
+
+    expect(renameFish(account, 'koi', id, '   ')).toBe(account);
+    expect(renameFish(account, 'koi', 'nobody', 'Hana')).toBe(account);
+    expect(renameFish(account, 'koi', id, account.owned[0]!.name)).toBe(account);
+    // A koi's id is no goldfish's.
+    expect(renameFish(account, 'goldfish', id, 'Hana')).toBe(account);
   });
 });

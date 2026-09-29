@@ -8,6 +8,7 @@ import type {
 } from '../types';
 import { AI_PROVIDERS } from './ai-handoff';
 import { DEFAULT_NAMING_SETTINGS, sanitizeBranchType } from './branch-utils';
+import { cleanFishName } from './fish-name';
 import { DEFAULT_BASE_FISH, MAX_BASE_FISH, MIN_BASE_FISH } from './koi';
 import { sanitizeLilyPlacements, type LilyPlacements } from './pond-decor';
 import {
@@ -28,6 +29,9 @@ export const BASE_FISH_STORAGE_KEY = 'branchify-koi-base-fish';
 export const PARTICLES_STORAGE_KEY = 'branchify-particles';
 // Where the visitor has dragged the pond's lilies, as fractions of the viewport.
 export const LILY_PLACEMENTS_STORAGE_KEY = 'branchify-koi-lilies';
+// Names the visitor has given branch koi and residents, by the fish's pond key.
+// Fish from the market are renamed in the market account instead.
+export const FISH_NAMES_STORAGE_KEY = 'branchify-koi-names';
 // Matches the pond's own cap, so a base fish count of 10 has ten real branches
 // to promote out of "resident" and into "yours" before the koi runs out.
 export const MAX_RECENT_BRANCHES = MAX_BASE_FISH;
@@ -232,5 +236,36 @@ export const parseLilyPlacements = (raw: string | null): LilyPlacements => {
     return sanitizeLilyPlacements(JSON.parse(raw));
   } catch {
     return [];
+  }
+};
+
+/** Names a visitor has given fish, by pond key. */
+export type FishNames = Readonly<Record<string, string>>;
+
+/** How many names are remembered; a branch that has left the recent list keeps its koi's name only this long. */
+export const MAX_FISH_NAMES = 200;
+
+/** Keeps the names that are still names, newest last, within the cap. */
+export const sanitizeFishNames = (value: unknown): FishNames => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return {};
+  }
+
+  const kept = Object.entries(value)
+    .map(([key, name]) => [key, cleanFishName(name)] as const)
+    .filter((entry): entry is readonly [string, string] => entry[1] !== null);
+
+  return Object.fromEntries(kept.slice(-MAX_FISH_NAMES));
+};
+
+export const parseFishNames = (raw: string | null): FishNames => {
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    return sanitizeFishNames(JSON.parse(raw));
+  } catch {
+    return {};
   }
 };

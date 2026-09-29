@@ -9,12 +9,14 @@ import {
   parseAccount,
   releaseGoldfish,
   releaseKoi,
+  renameFish,
   restockTank,
   rewardBranch,
   type KoiAccount,
   type PurchaseOutcome,
   type RestockOutcome
 } from '../lib/koi-account';
+import type { FishSpecies } from '../lib/fish-growth';
 import type { GoldfishListing } from '../lib/goldfish-market';
 import { marketDay, msUntilRestock } from '../lib/koi-market-clock';
 import type { KoiListing } from '../lib/koi-market';
@@ -35,6 +37,8 @@ export type UseKoiAccount = {
   release: (id: string) => number;
   /** Releases a goldfish and returns what the market paid back for it. */
   releaseGoldfish: (id: string) => number;
+  /** Renames a fish the visitor owns; a blank name changes nothing. */
+  rename: (species: FishSpecies, id: string, name: string) => void;
   /** Pays to swap the day's tank for a fresh six. */
   restock: (day: string) => RestockOutcome;
   markMarketSeen: (day: string) => void;
@@ -156,6 +160,12 @@ export const useKoiAccount = (recentBranches: readonly RecentBranch[]): UseKoiAc
     [commit]
   );
 
+  const rename = useCallback(
+    (species: FishSpecies, id: string, name: string): void =>
+      commit(renameFish(accountRef.current, species, id, name)),
+    [commit]
+  );
+
   const markMarketSeen = useCallback(
     (day: string): void => commit(markSeen(accountRef.current, day)),
     [commit]
@@ -174,6 +184,7 @@ export const useKoiAccount = (recentBranches: readonly RecentBranch[]): UseKoiAc
     buyGoldfish: buyAGoldfish,
     release,
     releaseGoldfish: releaseAGoldfish,
+    rename,
     restock,
     markMarketSeen,
     dismissMarketWelcome
