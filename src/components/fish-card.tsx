@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { joinedLabel } from '../lib/fish-growth';
+import { closeLiveKoi } from '../lib/koi-live';
 import { ACTIVITY_LABELS, sizeLine, type FishCard as FishCardData } from '../lib/koi-inspect';
 import { RARITY_LABELS } from '../lib/koi-varieties';
 import { CoinAmount } from './coin-icon';
@@ -92,6 +93,9 @@ export const FishCard = ({
     return () => window.removeEventListener('keydown', handleKey);
   }, []);
 
+  // The swimming koi's WebGL context goes back when the card closes, as it does when the market closes.
+  useEffect(() => closeLiveKoi, []);
+
   return (
     <aside
       ref={ref}
@@ -118,7 +122,13 @@ export const FishCard = ({
       </div>
 
       {card.genome && (
-        <KoiPortraitImage genome={card.genome} alt={`${card.name}, ${card.species}`} />
+        // The fish swims for as long as its card is open, as a market koi does under the pointer.
+        <KoiPortraitImage
+          genome={card.genome}
+          alt={`${card.name}, ${card.species}`}
+          active
+          hoverOnly={false}
+        />
       )}
 
       <p className="koi-variety">

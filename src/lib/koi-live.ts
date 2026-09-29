@@ -39,13 +39,13 @@ let live: Live | null = null;
 let unavailable = false;
 
 /**
- * Still is better on a touch screen, which has no hover to end the preview,
- * and for anyone who asked their system for less motion.
+ * Still is better for anyone who asked their system for less motion, and on a
+ * touch screen when only hovering would end the preview, since it has no hover.
  */
-const prefersStill = (): boolean =>
+const prefersStill = (endsOnHover: boolean): boolean =>
   typeof window.matchMedia !== 'function' ||
   window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
-  !window.matchMedia('(hover: hover)').matches;
+  (endsOnHover && !window.matchMedia('(hover: hover)').matches);
 
 const open = (): Live | null => {
   if (live || unavailable) {
@@ -104,9 +104,14 @@ export const hideLiveKoi = (host: HTMLElement | null): void => {
   room.host = null;
 };
 
-/** Brings a genome's koi to life inside a host, over its photograph. */
-export const showLiveKoi = (genome: FishGenome, host: HTMLElement): void => {
-  if (prefersStill()) {
+/**
+ * Brings a genome's koi to life inside a host, over its photograph.
+ *
+ * @param endsOnHover - Whether only the pointer leaving puts the koi back to
+ *   sleep; a card with its own close button swims on touch screens too.
+ */
+export const showLiveKoi = (genome: FishGenome, host: HTMLElement, endsOnHover = true): void => {
+  if (prefersStill(endsOnHover)) {
     return;
   }
 

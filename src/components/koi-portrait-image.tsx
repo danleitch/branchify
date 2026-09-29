@@ -8,6 +8,11 @@ type KoiPortraitImageProps = {
   alt: string;
   /** While true, the photograph gives way to the koi itself, swimming. */
   active?: boolean;
+  /**
+   * Whether the koi wakes only while pointed at, as in the market. A portrait
+   * that is awake for as long as it is shown swims on touch screens too.
+   */
+  hoverOnly?: boolean;
   /** Wait until the portrait is nearly on screen before taking it, as a long page should. */
   lazy?: boolean;
   className?: string;
@@ -28,6 +33,7 @@ export const KoiPortraitImage = ({
   genome,
   alt,
   active = false,
+  hoverOnly = true,
   lazy = false,
   className
 }: KoiPortraitImageProps): JSX.Element => {
@@ -86,9 +92,9 @@ export const KoiPortraitImage = ({
       return;
     }
 
-    showLiveKoi(genomeRef.current, host);
+    showLiveKoi(genomeRef.current, host, hoverOnly);
     return () => hideLiveKoi(host);
-  }, [active, key]);
+  }, [active, hoverOnly, key]);
 
   const state = current === null ? 'loading' : current.url ? 'ready' : 'missing';
 
