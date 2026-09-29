@@ -16,6 +16,7 @@
  * tested without React, storage, or a clock.
  */
 import { koiBuild } from '../vendor/koi-pond/model/traits';
+import { cleanFishName } from './fish-name';
 import { KOI_FRAMEWORKS } from '../vendor/koi-pond/model/types';
 import { growthOf, koiAdultCm, type FishSpecies, type Stocked } from './fish-growth';
 import type { GoldfishGenome, GoldfishVarietyId } from './goldfish';
@@ -358,6 +359,33 @@ export const pondWorth = (account: KoiAccount, now: Date): PondWorth => {
     paid: [...account.owned, ...account.goldfish].reduce((total, fish) => total + fish.price, 0),
     perDay: all.reduce((total, growth) => total + growth.valuePerDay, 0)
   };
+};
+
+/**
+ * Gives a fish a new name. A name that is blank once tidied, or a fish that is
+ * no longer in the pond, changes nothing.
+ */
+export const renameFish = (
+  account: KoiAccount,
+  species: FishSpecies,
+  id: string,
+  name: string
+): KoiAccount => {
+  const cleaned = cleanFishName(name);
+  const fish = species === 'koi' ? account.owned : account.goldfish;
+  const current = fish.find((candidate) => candidate.id === id);
+
+  if (!cleaned || !current || current.name === cleaned) {
+    return account;
+  }
+
+  const renamed = fish.map((candidate) =>
+    candidate.id === id ? { ...candidate, name: cleaned } : candidate
+  );
+
+  return species === 'koi'
+    ? { ...account, owned: renamed as OwnedKoi[] }
+    : { ...account, goldfish: renamed as OwnedGoldfish[] };
 };
 
 export const markSeen = (account: KoiAccount, day: string): KoiAccount =>

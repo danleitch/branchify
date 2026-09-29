@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { MAX_FISH_NAME, cleanFishName } from '../lib/fish-name';
 import { joinedLabel } from '../lib/fish-growth';
 import { closeLiveKoi } from '../lib/koi-live';
 import { ACTIVITY_LABELS, sizeLine, type FishCard as FishCardData } from '../lib/koi-inspect';
@@ -13,6 +14,8 @@ type FishCardProps = {
   now?: Date;
   /** Whether the pond lets its fish be carried; a still, reduced-motion pond does not. */
   canDrag?: boolean;
+  /** Gives the fish a new name; without it the name is only read. */
+  onRename?: (name: string) => void;
   onClose: () => void;
 };
 
@@ -50,12 +53,83 @@ const kindLabel = (card: FishCardData): string => {
   }
 };
 
+type NameProps = { name: string; onRename?: (name: string) => void };
+
+/** A fish's name; where it can be renamed, clicking it turns it into a text box. */
+const FishName = ({ name, onRename }: NameProps): JSX.Element => {
+  const [draft, setDraft] = useState<string | null>(null);
+  // Enter and the blur that follows it are one save, not two.
+  const finished = useRef(false);
+
+  if (!onRename) {
+    return <>{name}</>;
+  }
+
+  if (draft === null) {
+    return (
+      <button
+        type="button"
+        className="fish-card-name"
+        title="Click to rename"
+        aria-label={`Rename ${name}`}
+        onClick={() => {
+          finished.current = false;
+          setDraft(name);
+        }}
+      >
+        {name}
+        <span className="fish-card-name-edit" aria-hidden="true">
+          ✎
+        </span>
+      </button>
+    );
+  }
+
+  const finish = (save: boolean): void => {
+    if (finished.current) {
+      return;
+    }
+
+    finished.current = true;
+    const cleaned = cleanFishName(draft);
+
+    if (save && cleaned && cleaned !== name) {
+      onRename(cleaned);
+    }
+
+    setDraft(null);
+  };
+
+  return (
+    <input
+      className="fish-card-name-input"
+      aria-label={`New name for ${name}`}
+      value={draft}
+      maxLength={MAX_FISH_NAME}
+      autoFocus
+      onFocus={(event) => event.currentTarget.select()}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => finish(true)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          finish(true);
+        } else if (event.key === 'Escape') {
+          // Puts the edit away, not the card it is on.
+          event.stopPropagation();
+          finish(false);
+        }
+      }}
+    />
+  );
+};
+
 /** A fish's details, opened by clicking it in the pond. */
 export const FishCard = ({
   card,
   anchor,
   now = new Date(),
   canDrag = true,
+  onRename,
   onClose
 }: FishCardProps): JSX.Element => {
   const ref = useRef<HTMLElement>(null);
@@ -108,7 +182,7 @@ export const FishCard = ({
     >
       <div className="fish-card-header">
         <h2 id={headingId}>
-          {card.name}
+          <FishName key={card.key} name={card.name} onRename={onRename} />
           {card.nameMeaning && <span className="koi-name-meaning"> · {card.nameMeaning}</span>}
         </h2>
         <button

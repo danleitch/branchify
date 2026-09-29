@@ -3,8 +3,10 @@ import { DEFAULT_BASE_FISH, MAX_BASE_FISH, MIN_BASE_FISH } from './koi';
 import {
   DEFAULT_SETTINGS,
   EMPTY_FORM,
+  MAX_FISH_NAMES,
   MAX_RECENT_BRANCHES,
   parseBaseFish,
+  parseFishNames,
   parseForm,
   parseRecentBranches,
   parseSettings
@@ -179,5 +181,38 @@ describe('parseBaseFish', () => {
     expect(parseBaseFish(String(MAX_BASE_FISH + 1))).toBe(DEFAULT_BASE_FISH);
     expect(parseBaseFish('3.5')).toBe(DEFAULT_BASE_FISH);
     expect(parseBaseFish('a lot')).toBe(DEFAULT_BASE_FISH);
+  });
+});
+
+describe('parseFishNames', () => {
+  it('reads nothing as no names', () => {
+    expect(parseFishNames(null)).toEqual({});
+    expect(parseFishNames('not json')).toEqual({});
+    expect(parseFishNames('[1,2]')).toEqual({});
+    expect(parseFishNames('"Hana"')).toEqual({});
+  });
+
+  it('keeps tidy names and drops anything that is not one', () => {
+    expect(
+      parseFishNames(
+        JSON.stringify({
+          'feat/a': '  Sir   Splash ',
+          'feat/b': '   ',
+          'feat/c': 7,
+          'feat/d': 'Momo'
+        })
+      )
+    ).toEqual({ 'feat/a': 'Sir Splash', 'feat/d': 'Momo' });
+  });
+
+  it('keeps the newest names within the cap', () => {
+    const names = Object.fromEntries(
+      Array.from({ length: MAX_FISH_NAMES + 5 }, (_, index) => [`branch-${index}`, `Fish ${index}`])
+    );
+    const kept = parseFishNames(JSON.stringify(names));
+
+    expect(Object.keys(kept)).toHaveLength(MAX_FISH_NAMES);
+    expect(kept['branch-0']).toBeUndefined();
+    expect(kept[`branch-${MAX_FISH_NAMES + 4}`]).toBe(`Fish ${MAX_FISH_NAMES + 4}`);
   });
 });

@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { KoiTraits } from '../vendor/koi-pond/model/types';
 import type { OwnedGoldfish, OwnedKoi } from './koi-account';
-import { fishCardFor, personalityOf, pondNameFor, sizeLine, type FishReading } from './koi-inspect';
+import {
+  fishCardFor,
+  marketFishOf,
+  personalityOf,
+  pondNameFor,
+  sizeLine,
+  type FishReading
+} from './koi-inspect';
 import { KOI_NAMES } from './koi-market';
 import { buildKoiRoster } from './koi-roster';
 
@@ -159,6 +166,63 @@ describe('fishCardFor', () => {
     const card = fishCardFor(descriptor!, { koi: [], goldfish: [] }, reading(), NOW);
 
     expect(card.kind).toBe('resident');
+  });
+});
+
+describe('marketFishOf', () => {
+  it('tells a bought fish from a branch koi or a resident', () => {
+    expect(marketFishOf('market:2026-03-01#0.0.0')).toEqual({
+      species: 'koi',
+      id: '2026-03-01#0.0.0'
+    });
+    expect(marketFishOf('goldfish:2026-03-02#g.0')).toEqual({
+      species: 'goldfish',
+      id: '2026-03-02#g.0'
+    });
+    expect(marketFishOf('feat/BRF-1-add-auth')).toBeNull();
+    expect(marketFishOf('resident-0')).toBeNull();
+  });
+});
+
+describe('a given name', () => {
+  it('replaces the seeded name on a branch koi and a resident, and no other', () => {
+    const [branch] = buildKoiRoster(
+      [{ value: 'feat/BRF-1-add-auth', createdAt: '2026-01-01T00:00:00.000Z' }],
+      0
+    );
+    const [resident] = buildKoiRoster([], 1);
+    const names = { 'feat/BRF-1-add-auth': 'Sir Splash', 'resident-0': 'Momo' };
+    const owned = { koi: [], goldfish: [], names };
+
+    expect(fishCardFor(branch!, owned, reading(), NOW).name).toBe('Sir Splash');
+    expect(fishCardFor(resident!, owned, reading(), NOW).name).toBe('Momo');
+    expect(fishCardFor(branch!, { koi: [], goldfish: [] }, reading(), NOW).name).toBe(
+      pondNameFor(branch!.seed)
+    );
+  });
+
+  it('gives a name the market knows its meaning', () => {
+    const [resident] = buildKoiRoster([], 1);
+    const card = fishCardFor(
+      resident!,
+      { koi: [], goldfish: [], names: { 'resident-0': 'Hana' } },
+      reading(),
+      NOW
+    );
+
+    expect(card.nameMeaning).toBe('flower');
+  });
+
+  it("does not touch a bought fish's own name", () => {
+    const [descriptor] = buildKoiRoster([], 0, [koi], [], NOW);
+    const card = fishCardFor(
+      descriptor!,
+      { koi: [koi], goldfish: [], names: { [descriptor!.key]: 'Nope' } },
+      reading(),
+      NOW
+    );
+
+    expect(card.name).toBe('Hana');
   });
 });
 

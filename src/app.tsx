@@ -9,6 +9,7 @@ import { RecentBranches } from './components/recent-branches';
 import { ResetButton } from './components/reset-button';
 import { SettingsButton } from './components/settings-button';
 import { SettingsPanel } from './components/settings-panel';
+import { marketFishOf } from './lib/koi-inspect';
 import { useKoiAccount, useMarketDay } from './hooks/use-koi-account';
 import { useRecentBranches } from './hooks/use-recent-branches';
 import { buildAiHandoffTargets } from './lib/ai-handoff';
@@ -23,17 +24,21 @@ import {
   BASE_FISH_STORAGE_KEY,
   EMPTY_FORM,
   FORM_STORAGE_KEY,
+  FISH_NAMES_STORAGE_KEY,
   LILY_PLACEMENTS_STORAGE_KEY,
   PARTICLES_STORAGE_KEY,
   SETTINGS_STORAGE_KEY,
   parseBackground,
   parseBaseFish,
+  parseFishNames,
   parseForm,
   parseLilyPlacements,
   parseParticleSettings,
   parseSettings,
   readStorage,
-  writeStorage
+  writeStorage,
+  MAX_FISH_NAMES,
+  type FishNames
 } from './lib/storage';
 import type { ParticleSettings } from './lib/particles';
 import type { LilyPlacements } from './lib/pond-decor';
@@ -109,13 +114,16 @@ export const App = (): JSX.Element => {
   const [lilyPlacements, setLilyPlacements] = useState<LilyPlacements>(() =>
     parseLilyPlacements(readStorage(LILY_PLACEMENTS_STORAGE_KEY))
   );
+  const [fishNames, setFishNames] = useState<FishNames>(() =>
+    parseFishNames(readStorage(FISH_NAMES_STORAGE_KEY))
+  );
   const [particleSettings, setParticleSettings] = useState<ParticleSettings>(() =>
     parseParticleSettings(readStorage(PARTICLES_STORAGE_KEY))
   );
   const [particlesOpen, setParticlesOpen] = useState(false);
   const { recentBranches, addRecentBranch, removeRecentBranch } = useRecentBranches();
   const market = useKoiAccount(recentBranches);
-  const { rewardForBranch, markMarketSeen } = market;
+  const { rewardForBranch, markMarketSeen, rename } = market;
   const marketDay = useMarketDay();
   const [marketOpen, setMarketOpen] = useState(false);
 
@@ -155,6 +163,10 @@ export const App = (): JSX.Element => {
   }, [lilyPlacements]);
 
   useEffect(() => {
+    writeStorage(FISH_NAMES_STORAGE_KEY, JSON.stringify(fishNames));
+  }, [fishNames]);
+
+  useEffect(() => {
     writeStorage(PARTICLES_STORAGE_KEY, JSON.stringify(particleSettings));
   }, [particleSettings]);
 
@@ -180,6 +192,24 @@ export const App = (): JSX.Element => {
 
     return () => clearTimeout(timer);
   }, [form, settings, branchName, addRecentBranch, rewardForBranch]);
+
+  // A fish from the market is renamed on the market's books, so the market and
+  // the pond always agree; a branch koi or resident has no listing, so its name
+  // is kept here, against its place in the pond.
+  const renameFish = (key: string, name: string): void => {
+    const bought = marketFishOf(key);
+
+    if (bought) {
+      rename(bought.species, bought.id, name);
+      return;
+    }
+
+    setFishNames((current) => {
+      // Re-added last, so the cap drops the names longest untouched.
+      const others = Object.entries(current).filter(([other]) => other !== key);
+      return Object.fromEntries([...others, [key, name]].slice(-MAX_FISH_NAMES));
+    });
+  };
 
   const openMarket = (): void => {
     setMarketOpen(true);
@@ -253,6 +283,8 @@ export const App = (): JSX.Element => {
             avoidRef={panelRef}
             lilyPlacements={lilyPlacements}
             onLilyPlacementsChange={setLilyPlacements}
+            fishNames={fishNames}
+            onRenameFish={renameFish}
           />
         </Suspense>
       )}

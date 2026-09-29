@@ -111,4 +111,83 @@ describe('FishCard', () => {
     );
     expect(screen.queryByText(/Drag a fish/)).not.toBeInTheDocument();
   });
+
+  describe('renaming', () => {
+    const renderRenamable = (onRename = vi.fn(), onClose = vi.fn()) => {
+      render(
+        <FishCard
+          card={branchKoi}
+          anchor={{ x: 100, y: 100 }}
+          now={NOW}
+          onRename={onRename}
+          onClose={onClose}
+        />
+      );
+      return { onRename, onClose };
+    };
+
+    it('leaves the name as plain text where the fish cannot be renamed', () => {
+      renderCard(branchKoi);
+
+      expect(screen.queryByRole('button', { name: 'Rename Sora' })).not.toBeInTheDocument();
+    });
+
+    it('turns the name into a text box, and saves it on Enter', async () => {
+      const user = userEvent.setup();
+      const { onRename } = renderRenamable();
+
+      await user.click(screen.getByRole('button', { name: 'Rename Sora' }));
+      const box = screen.getByRole('textbox', { name: 'New name for Sora' });
+      expect(box).toHaveValue('Sora');
+      expect(box).toHaveFocus();
+
+      await user.clear(box);
+      await user.type(box, '  Sir   Splash {Enter}');
+
+      expect(onRename).toHaveBeenCalledOnce();
+      expect(onRename).toHaveBeenCalledWith('Sir Splash');
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    });
+
+    it('saves when the box loses focus', async () => {
+      const user = userEvent.setup();
+      const { onRename } = renderRenamable();
+
+      await user.click(screen.getByRole('button', { name: 'Rename Sora' }));
+      await user.clear(screen.getByRole('textbox'));
+      await user.type(screen.getByRole('textbox'), 'Momo');
+      await user.click(screen.getByText('Taisho Sanke'));
+
+      expect(onRename).toHaveBeenCalledExactlyOnceWith('Momo');
+    });
+
+    it('puts the edit away on Escape, and keeps the card open', async () => {
+      const user = userEvent.setup();
+      const { onRename, onClose } = renderRenamable();
+
+      await user.click(screen.getByRole('button', { name: 'Rename Sora' }));
+      await user.type(screen.getByRole('textbox'), 'zzz{Escape}');
+
+      expect(onRename).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.getByRole('button', { name: 'Rename Sora' })).toBeInTheDocument();
+
+      // With no edit under way, Escape closes the card as before.
+      await user.keyboard('{Escape}');
+      expect(onClose).toHaveBeenCalledOnce();
+    });
+
+    it('keeps the name when it is blank or unchanged', async () => {
+      const user = userEvent.setup();
+      const { onRename } = renderRenamable();
+
+      await user.click(screen.getByRole('button', { name: 'Rename Sora' }));
+      await user.clear(screen.getByRole('textbox'));
+      await user.type(screen.getByRole('textbox'), '   {Enter}');
+      await user.click(screen.getByRole('button', { name: 'Rename Sora' }));
+      await user.type(screen.getByRole('textbox'), '{Enter}');
+
+      expect(onRename).not.toHaveBeenCalled();
+    });
+  });
 });
