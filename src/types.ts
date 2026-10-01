@@ -26,5 +26,5 @@ export type BranchSettings = BranchSeparators & {
   aiHandoffTargets: AiProvider[];
 };
 
-/** Which backdrop the app draws behind the panel. */
-export type BackgroundStyle = 'koi' | 'particles' | 'plain';
+/** Which backdrop the app draws behind the dashboard. */
+export type BackgroundStyle = 'koi' | 'particles' | 'wallpaper' | 'plain';

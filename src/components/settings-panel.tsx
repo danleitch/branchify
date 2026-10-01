@@ -2,36 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { AI_PROVIDERS, AI_PROVIDER_LABELS } from '../lib/ai-handoff';
 import { MAX_BRANCH_TYPE_LENGTH, sanitizeBranchType } from '../lib/branch-utils';
-import { MAX_BASE_FISH, MIN_BASE_FISH } from '../lib/koi';
-import { BACKGROUND_STYLES } from '../lib/storage';
-import type { AiProvider, BackgroundStyle } from '../types';
+import type { AiProvider } from '../types';
 
-const BACKGROUND_LABELS: Readonly<Record<BackgroundStyle, string>> = {
-  koi: 'Koi pond',
-  particles: 'Particles',
-  plain: 'Plain'
-};
-
-/** One option per fish count the pond can be floored at. */
-const BASE_FISH_OPTIONS: readonly number[] = Array.from(
-  { length: MAX_BASE_FISH - MIN_BASE_FISH + 1 },
-  (_unused, index) => MIN_BASE_FISH + index
-);
-
+/**
+ * Branchify's own settings: the branch types it offers and the AI icons beside
+ * the description. The backdrop is the dashboard's, in its Appearance settings.
+ */
 type SettingsPanelProps = {
   branchTypes: string[];
-  background: BackgroundStyle;
-  onBackgroundChange: (background: BackgroundStyle) => void;
-  /** How many koi swim at minimum; more join as branches are saved, up to the pond's cap. */
-  baseFishCount: number;
-  onBaseFishCountChange: (count: number) => void;
-  /** Whether any lily has been dragged away from where the pond put it. */
-  liliesMoved?: boolean;
-  onResetLilies?: () => void;
-  /** How many market koi the visitor owns; while there are any, they are the whole pond. */
-  marketKoiCount?: number;
-  onOpenMarket?: () => void;
-  onOpenParticles?: () => void;
   aiHandoffTargets: AiProvider[];
   onAiHandoffTargetsChange: (targets: AiProvider[]) => void;
   onAddType: (type: string) => void;
@@ -42,15 +20,6 @@ type SettingsPanelProps = {
 
 export const SettingsPanel = ({
   branchTypes,
-  background,
-  onBackgroundChange,
-  baseFishCount,
-  onBaseFishCountChange,
-  liliesMoved = false,
-  onResetLilies,
-  marketKoiCount = 0,
-  onOpenMarket,
-  onOpenParticles,
   aiHandoffTargets,
   onAiHandoffTargetsChange,
   onAddType,
@@ -117,7 +86,7 @@ export const SettingsPanel = ({
         aria-labelledby="settings-title"
       >
         <div className="settings-panel-header">
-          <h2 id="settings-title">Settings</h2>
+          <h2 id="settings-title">Branchify settings</h2>
           <button
             type="button"
             className="header-action"
@@ -196,74 +165,6 @@ export const SettingsPanel = ({
           <p className="settings-hint">
             Choose which AI icons appear beside the description field.
           </p>
-        </fieldset>
-
-        <fieldset className="settings-fieldset">
-          <legend>Background</legend>
-          {BACKGROUND_STYLES.map((style) => (
-            <label key={style} className="settings-toggle">
-              <input
-                type="radio"
-                name="background"
-                value={style}
-                checked={background === style}
-                onChange={() => onBackgroundChange(style)}
-              />
-              {BACKGROUND_LABELS[style]}
-            </label>
-          ))}
-          <p className="settings-hint">
-            The koi pond swims one fish per recent branch, each in its own colour, or the koi you
-            buy at the market. Click the water and they come to look; right-click to feed them; drag
-            a lily pad to move it.
-          </p>
-
-          {background === 'koi' && (
-            <>
-              <label className="settings-select">
-                Fish always in the pond
-                <select
-                  value={baseFishCount}
-                  disabled={marketKoiCount > 0}
-                  onChange={(event) => onBaseFishCountChange(Number(event.target.value))}
-                >
-                  {BASE_FISH_OPTIONS.map((count) => (
-                    <option key={count} value={count}>
-                      {count}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <p className="settings-hint">
-                {marketKoiCount === 1
-                  ? 'Your market koi has the pond to itself, so branch koi and residents are resting until you release it.'
-                  : marketKoiCount > 1
-                    ? `Your ${marketKoiCount} market koi fill the pond, so branch koi and residents are resting until you release them.`
-                    : `The pond never drops below this many. Recent branches fill in past it, up to ${MAX_BASE_FISH} at once.`}
-              </p>
-              {onResetLilies && (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  disabled={!liliesMoved}
-                  onClick={onResetLilies}
-                >
-                  Reset lily positions
-                </button>
-              )}
-              {onOpenMarket && (
-                <button type="button" className="btn btn-secondary" onClick={onOpenMarket}>
-                  Open the koi market
-                </button>
-              )}
-            </>
-          )}
-
-          {background === 'particles' && onOpenParticles && (
-            <button type="button" className="btn btn-secondary" onClick={onOpenParticles}>
-              Customise the particles
-            </button>
-          )}
         </fieldset>
       </div>
     </div>

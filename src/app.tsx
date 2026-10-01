@@ -1,58 +1,39 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
-import { BranchForm } from './components/branch-form';
-import { BranchOutputs } from './components/branch-outputs';
-import { GithubButton } from './components/github-button';
+import { Suspense, lazy, useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { BranchifySheet } from './branchify/branchify-sheet';
+import { useBranchify } from './branchify/use-branchify';
+import { BackgroundSettings } from './components/background-settings';
 import { KoiMarketButton } from './components/koi-market-button';
 import { ParticleSettingsPanel } from './components/particle-settings-panel';
 import { ParticlesButton } from './components/particles-button';
-import { RecentBranches } from './components/recent-branches';
-import { ResetButton } from './components/reset-button';
-import { SettingsButton } from './components/settings-button';
-import { SettingsPanel } from './components/settings-panel';
-import { marketFishOf } from './lib/koi-inspect';
+import { Dashboard } from './dashboard/dashboard';
 import { useKoiAccount, useMarketDay } from './hooks/use-koi-account';
 import { useRecentBranches } from './hooks/use-recent-branches';
-import { buildAiHandoffTargets } from './lib/ai-handoff';
-import {
-  DEFAULT_BRANCH_TYPES,
-  generateBranchName,
-  generatePullRequestTitle,
-  parseBranchName
-} from './lib/branch-utils';
+import { marketFishOf } from './lib/koi-inspect';
 import {
   BACKGROUND_STORAGE_KEY,
   BASE_FISH_STORAGE_KEY,
-  EMPTY_FORM,
-  FORM_STORAGE_KEY,
   FISH_NAMES_STORAGE_KEY,
   LILY_PLACEMENTS_STORAGE_KEY,
+  MAX_FISH_NAMES,
   PARTICLES_STORAGE_KEY,
-  SETTINGS_STORAGE_KEY,
+  WALLPAPER_STORAGE_KEY,
   parseBackground,
   parseBaseFish,
   parseFishNames,
-  parseForm,
   parseLilyPlacements,
   parseParticleSettings,
-  parseSettings,
+  parseWallpaper,
   readStorage,
   writeStorage,
-  MAX_FISH_NAMES,
   type FishNames
 } from './lib/storage';
 import type { ParticleSettings } from './lib/particles';
 import type { LilyPlacements } from './lib/pond-decor';
-import type {
-  BackgroundStyle,
-  BranchSeparators,
-  BranchSettings,
-  PersistedForm,
-  RecentBranch
-} from './types';
+import type { BackgroundStyle } from './types';
 
 // Only visitors who pick the particles background pay to download tsparticles;
 // the koi pond is the default and carries no library at all.
-// three.js and the vendored koi are the heaviest thing Branchify can draw, so
+// three.js and the vendored koi are the heaviest thing the app can draw, so
 // they arrive only for visitors who are actually looking at the pond.
 const Koi3dBackground = lazy(() =>
   import('./components/koi3d-background').then((module) => ({
@@ -72,41 +53,53 @@ const KoiMarket = lazy(() =>
   import('./components/koi-market').then((module) => ({ default: module.KoiMarket }))
 );
 
-const AUTOSAVE_IDLE_MS = 5 * 60 * 1000;
+/** Branchify opens over the board at this address, so it can be bookmarked and Back closes it. */
+const BRANCHIFY_HASH = '#branchify';
 
-type LoadableBranch = { form: PersistedForm; separators: BranchSeparators };
+const useBranchifyRoute = (): [boolean, () => void, () => void] => {
+  const [open, setOpen] = useState(() => window.location.hash === BRANCHIFY_HASH);
 
-/** Uses the saved snapshot when present, otherwise tries to reverse-engineer legacy entries. */
-const resolveRecentBranch = (
-  item: RecentBranch,
-  settings: BranchSettings
-): LoadableBranch | null => {
-  if (item.form && item.separators) {
-    return { form: item.form, separators: item.separators };
-  }
+  useEffect(() => {
+    const sync = (): void => setOpen(window.location.hash === BRANCHIFY_HASH);
+    window.addEventListener('hashchange', sync);
+    window.addEventListener('popstate', sync);
 
-  const form = parseBranchName(item.value, settings);
+    return () => {
+      window.removeEventListener('hashchange', sync);
+      window.removeEventListener('popstate', sync);
+    };
+  }, []);
 
-  return form
-    ? {
-        form,
-        separators: {
-          typeSeparator: settings.typeSeparator,
-          ticketSeparator: settings.ticketSeparator
-        }
-      }
-    : null;
+  const show = useCallback((): void => {
+    if (window.location.hash !== BRANCHIFY_HASH) {
+      window.history.pushState(null, '', BRANCHIFY_HASH);
+    }
+
+    setOpen(true);
+  }, []);
+
+  const hide = useCallback((): void => {
+    if (window.location.hash === BRANCHIFY_HASH) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+
+    setOpen(false);
+  }, []);
+
+  return [open, show, hide];
 };
 
-export const App = (): JSX.Element => {
-  const [form, setForm] = useState<PersistedForm>(() => parseForm(readStorage(FORM_STORAGE_KEY)));
-  const [settings, setSettings] = useState<BranchSettings>(() =>
-    parseSettings(readStorage(SETTINGS_STORAGE_KEY))
-  );
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const panelRef = useRef<HTMLElement>(null);
+type ShellProps = {
+  /** An import wrote new state to storage; everything is read again from it. */
+  onRestored: () => void;
+};
+
+const Shell = ({ onRestored }: ShellProps): JSX.Element => {
   const [background, setBackground] = useState<BackgroundStyle>(() =>
     parseBackground(readStorage(BACKGROUND_STORAGE_KEY))
+  );
+  const [wallpaper, setWallpaper] = useState(() =>
+    parseWallpaper(readStorage(WALLPAPER_STORAGE_KEY))
   );
   const [baseFishCount, setBaseFishCount] = useState<number>(() =>
     parseBaseFish(readStorage(BASE_FISH_STORAGE_KEY))
@@ -126,33 +119,16 @@ export const App = (): JSX.Element => {
   const { rewardForBranch, markMarketSeen, rename } = market;
   const marketDay = useMarketDay();
   const [marketOpen, setMarketOpen] = useState(false);
-
-  const branchName = useMemo(() => generateBranchName(form, settings), [form, settings]);
-  const pullRequestTitle = useMemo(
-    () => generatePullRequestTitle(form, settings),
-    [form, settings]
-  );
-  const aiTargets = useMemo(
-    () =>
-      buildAiHandoffTargets(form, settings).filter((target) =>
-        settings.aiHandoffTargets.includes(target.id)
-      ),
-    [form, settings]
-  );
-  const gitCommand = branchName ? `git checkout -b "${branchName}"` : '';
-  const namingPattern = `<type>${settings.typeSeparator}<ticket-id>${settings.ticketSeparator}<description>`;
-
-  useEffect(() => {
-    writeStorage(FORM_STORAGE_KEY, JSON.stringify(form));
-  }, [form]);
-
-  useEffect(() => {
-    writeStorage(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-  }, [settings]);
+  const branchify = useBranchify({ addRecentBranch, rewardForBranch });
+  const [branchifyOpen, openBranchify, closeBranchify] = useBranchifyRoute();
 
   useEffect(() => {
     writeStorage(BACKGROUND_STORAGE_KEY, background);
   }, [background]);
+
+  useEffect(() => {
+    writeStorage(WALLPAPER_STORAGE_KEY, wallpaper);
+  }, [wallpaper]);
 
   useEffect(() => {
     writeStorage(BASE_FISH_STORAGE_KEY, String(baseFishCount));
@@ -169,29 +145,6 @@ export const App = (): JSX.Element => {
   useEffect(() => {
     writeStorage(PARTICLES_STORAGE_KEY, JSON.stringify(particleSettings));
   }, [particleSettings]);
-
-  // Auto-saves the current branch name to the recent list once the form has
-  // sat idle for a while, so users get history without an explicit save step.
-  useEffect(() => {
-    if (!branchName) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      addRecentBranch(branchName, {
-        form,
-        separators: {
-          typeSeparator: settings.typeSeparator,
-          ticketSeparator: settings.ticketSeparator
-        }
-      });
-      // A branch worth keeping is a branch worth paying for; a name that was
-      // already copied has been paid for and earns nothing twice.
-      rewardForBranch(branchName);
-    }, AUTOSAVE_IDLE_MS);
-
-    return () => clearTimeout(timer);
-  }, [form, settings, branchName, addRecentBranch, rewardForBranch]);
 
   // A fish from the market is renamed on the market's books, so the market and
   // the pond always agree; a branch koi or resident has no listing, so its name
@@ -216,60 +169,45 @@ export const App = (): JSX.Element => {
     markMarketSeen(marketDay);
   };
 
-  const handleChange = (patch: Partial<PersistedForm>): void => {
-    setForm((current) => ({ ...current, ...patch }));
-  };
+  const headerExtras = (
+    <>
+      {background === 'koi' && (
+        <KoiMarketButton
+          coins={market.account.coins}
+          hasNewStock={market.account.seenDay !== marketDay}
+          reward={market.lastReward}
+          expanded={marketOpen}
+          onClick={openMarket}
+        />
+      )}
+      {background === 'particles' && (
+        <ParticlesButton expanded={particlesOpen} onClick={() => setParticlesOpen(true)} />
+      )}
+    </>
+  );
 
-  const handleSettingsChange = (patch: Partial<BranchSettings>): void => {
-    setSettings((current) => ({ ...current, ...patch }));
-  };
-
-  const handleTypeSeparatorChange = (value: string): void => {
-    handleSettingsChange({ typeSeparator: value });
-  };
-
-  const handleTicketSeparatorChange = (value: string): void => {
-    handleSettingsChange({ ticketSeparator: value });
-  };
-
-  const handleAddType = (type: string): void => {
-    setSettings((current) =>
-      current.branchTypes.includes(type)
-        ? current
-        : { ...current, branchTypes: [...current.branchTypes, type] }
-    );
-  };
-
-  const handleRemoveType = (type: string): void => {
-    setSettings((current) =>
-      current.branchTypes.length > 1
-        ? { ...current, branchTypes: current.branchTypes.filter((item) => item !== type) }
-        : current
-    );
-  };
-
-  const handleResetTypes = (): void => {
-    handleSettingsChange({ branchTypes: [...DEFAULT_BRANCH_TYPES] });
-  };
-
-  const handleReset = (): void => {
-    setForm(EMPTY_FORM);
-  };
-
-  const canLoadRecent = (item: RecentBranch): boolean =>
-    resolveRecentBranch(item, settings) !== null;
-
-  const handleLoadRecent = (item: RecentBranch): void => {
-    const loadable = resolveRecentBranch(item, settings);
-
-    if (!loadable) {
-      return;
-    }
-
-    setForm(loadable.form);
-    handleSettingsChange(loadable.separators);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  // The market and particle controls open over the board, so Settings steps aside first.
+  const appearance = (closeSettings: () => void): JSX.Element => (
+    <BackgroundSettings
+      background={background}
+      onBackgroundChange={setBackground}
+      baseFishCount={baseFishCount}
+      onBaseFishCountChange={setBaseFishCount}
+      liliesMoved={lilyPlacements.some(Boolean)}
+      onResetLilies={() => setLilyPlacements([])}
+      marketKoiCount={market.account.owned.length}
+      onOpenMarket={() => {
+        closeSettings();
+        openMarket();
+      }}
+      onOpenParticles={() => {
+        closeSettings();
+        setParticlesOpen(true);
+      }}
+      wallpaper={wallpaper}
+      onWallpaperChange={setWallpaper}
+    />
+  );
 
   return (
     <>
@@ -280,7 +218,6 @@ export const App = (): JSX.Element => {
             baseFishCount={baseFishCount}
             ownedKoi={market.account.owned}
             ownedGoldfish={market.account.goldfish}
-            avoidRef={panelRef}
             lilyPlacements={lilyPlacements}
             onLilyPlacementsChange={setLilyPlacements}
             fishNames={fishNames}
@@ -293,92 +230,33 @@ export const App = (): JSX.Element => {
           <ParticlesBackground settings={particleSettings} />
         </Suspense>
       )}
+      {(background === 'plain' || background === 'wallpaper') && (
+        <div
+          className={`backdrop${background === 'wallpaper' && wallpaper ? ' backdrop--image' : ''}`}
+          style={
+            background === 'wallpaper' && wallpaper
+              ? ({ '--wallpaper': `url("${wallpaper.replace(/"/g, '%22')}")` } as CSSProperties)
+              : undefined
+          }
+          aria-hidden="true"
+        />
+      )}
 
       <main className="app-shell">
-        <section className="panel" ref={panelRef}>
-          <header className="panel-header">
-            <div className="panel-header-top">
-              <h1>Branchify 🪾</h1>
-              <div className="header-actions">
-                {background === 'koi' && (
-                  <KoiMarketButton
-                    coins={market.account.coins}
-                    hasNewStock={market.account.seenDay !== marketDay}
-                    reward={market.lastReward}
-                    expanded={marketOpen}
-                    onClick={openMarket}
-                  />
-                )}
-                {background === 'particles' && (
-                  <ParticlesButton
-                    expanded={particlesOpen}
-                    onClick={() => setParticlesOpen(true)}
-                  />
-                )}
-                <GithubButton />
-                <SettingsButton expanded={settingsOpen} onClick={() => setSettingsOpen(true)} />
-                <ResetButton onReset={handleReset} />
-              </div>
-            </div>
-            <p>Create consistent Git branch names in one quick step.</p>
-            <p>
-              <strong>'{namingPattern}'</strong> — the practical modern standard used across teams
-              leveraging your project management tools.
-            </p>
-          </header>
+        <Dashboard
+          headerExtras={headerExtras}
+          appearance={appearance}
+          onOpenBranchify={openBranchify}
+          onRestored={onRestored}
+        />
 
-          <BranchForm
-            form={form}
-            branchTypes={settings.branchTypes}
-            typeSeparator={settings.typeSeparator}
-            ticketSeparator={settings.ticketSeparator}
-            aiTargets={aiTargets}
-            onChange={handleChange}
-            onTypeSeparatorChange={handleTypeSeparatorChange}
-            onTicketSeparatorChange={handleTicketSeparatorChange}
-          />
-
-          <BranchOutputs
-            branchName={branchName}
-            gitCommand={gitCommand}
-            pullRequestTitle={pullRequestTitle}
-            onCopy={() => rewardForBranch(branchName)}
-          />
-
-          <RecentBranches
-            branches={recentBranches}
-            canLoad={canLoadRecent}
-            onLoad={handleLoadRecent}
-            onRemove={removeRecentBranch}
-          />
-        </section>
-
-        {settingsOpen && (
-          <SettingsPanel
-            branchTypes={settings.branchTypes}
-            background={background}
-            onBackgroundChange={setBackground}
-            baseFishCount={baseFishCount}
-            onBaseFishCountChange={setBaseFishCount}
-            liliesMoved={lilyPlacements.some(Boolean)}
-            onResetLilies={() => setLilyPlacements([])}
-            marketKoiCount={market.account.owned.length}
-            onOpenMarket={() => {
-              setSettingsOpen(false);
-              openMarket();
-            }}
-            onOpenParticles={() => {
-              setSettingsOpen(false);
-              setParticlesOpen(true);
-            }}
-            aiHandoffTargets={settings.aiHandoffTargets}
-            onAiHandoffTargetsChange={(aiHandoffTargets) =>
-              handleSettingsChange({ aiHandoffTargets })
-            }
-            onAddType={handleAddType}
-            onRemoveType={handleRemoveType}
-            onResetTypes={handleResetTypes}
-            onClose={() => setSettingsOpen(false)}
+        {branchifyOpen && (
+          <BranchifySheet
+            branchify={branchify}
+            recentBranches={recentBranches}
+            onRemoveRecent={removeRecentBranch}
+            onBranchUsed={rewardForBranch}
+            onClose={closeBranchify}
           />
         )}
 
@@ -408,4 +286,14 @@ export const App = (): JSX.Element => {
       </main>
     </>
   );
+};
+
+/**
+ * The personal dashboard, with Branchify as one of its tools and the koi pond,
+ * particles or a wallpaper behind the glass.
+ */
+export const App = (): JSX.Element => {
+  // Bumped after a full restore so every piece of state is read again from storage.
+  const [epoch, setEpoch] = useState(0);
+  return <Shell key={epoch} onRestored={() => setEpoch((current) => current + 1)} />;
 };

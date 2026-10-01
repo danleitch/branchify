@@ -32,6 +32,8 @@ export const LILY_PLACEMENTS_STORAGE_KEY = 'branchify-koi-lilies';
 // Names the visitor has given branch koi and residents, by the fish's pond key.
 // Fish from the market are renamed in the market account instead.
 export const FISH_NAMES_STORAGE_KEY = 'branchify-koi-names';
+// The image behind the dashboard's glass when the Wallpaper background is chosen.
+export const WALLPAPER_STORAGE_KEY = 'dashboard-wallpaper';
 // Matches the pond's own cap, so a base fish count of 10 has ten real branches
 // to promote out of "resident" and into "yours" before the koi runs out.
 export const MAX_RECENT_BRANCHES = MAX_BASE_FISH;
@@ -194,7 +196,12 @@ export const parseRecentBranches = (raw: string | null): RecentBranch[] => {
   }
 };
 
-export const BACKGROUND_STYLES: readonly BackgroundStyle[] = ['koi', 'particles', 'plain'];
+export const BACKGROUND_STYLES: readonly BackgroundStyle[] = [
+  'koi',
+  'particles',
+  'wallpaper',
+  'plain'
+];
 
 export const DEFAULT_BACKGROUND: BackgroundStyle = 'koi';
 
@@ -268,4 +275,10 @@ export const parseFishNames = (raw: string | null): FishNames => {
   } catch {
     return {};
   }
+};
+
+/** An image address for the wallpaper background; anything that isn't one is dropped. */
+export const parseWallpaper = (raw: string | null): string => {
+  const value = raw?.trim() ?? '';
+  return /^(https?:\/\/|data:image\/|\/)/i.test(value) ? value.slice(0, 4000) : '';
 };

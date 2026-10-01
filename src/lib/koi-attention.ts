@@ -85,11 +85,11 @@ export const insidePond = (
 });
 
 /**
- * Anything a visitor might be clicking on that isn't the water: the panel, a
+ * Anything a visitor might be clicking on that isn't the water: the dashboard's glass, a
  * dialog and its backdrop, or any control. A click on any of these is theirs.
  */
 const NOT_WATER =
-  '.panel, .settings-backdrop, [role="dialog"], a, button, input, select, textarea, label, summary';
+  '.panel, .settings-backdrop, .tool-backdrop, [role="dialog"], [data-dash], a, button, input, select, textarea, label, summary';
 
 /** Whether a click landed on open water, rather than on anything a visitor meant to use. */
 export const isOpenWater = (target: EventTarget | null): boolean =>

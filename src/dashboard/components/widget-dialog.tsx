@@ -1,0 +1,351 @@
+import { useId, useMemo, useState, type FormEvent } from 'react';
+import { Plus, X } from 'lucide-react';
+import {
+  WIDGET_BLURBS,
+  WIDGET_LABELS,
+  WIDGET_TYPES,
+  type ClockZone,
+  type MarketSymbol,
+  type Widget,
+  type WidgetType
+} from '../lib/model';
+import { WIDGET_ICONS } from '../widgets/widget-icons';
+import { WIDTH_OPTIONS } from './layout-options';
+import { Field, Modal, Segmented } from './ui';
+
+export const WidgetPicker = ({
+  onPick,
+  onClose
+}: {
+  onPick: (type: WidgetType) => void;
+  onClose: () => void;
+}): JSX.Element => (
+  <Modal title="Add a widget" subtitle="Widgets sit above your groups." onClose={onClose}>
+    <div className="picker">
+      {WIDGET_TYPES.map((type) => {
+        const Icon = WIDGET_ICONS[type];
+        return (
+          <button key={type} type="button" className="picker-option" onClick={() => onPick(type)}>
+            <span className="picker-icon">
+              <Icon size={20} aria-hidden="true" />
+            </span>
+            <span className="picker-text">
+              <span className="picker-label">{WIDGET_LABELS[type]}</span>
+              <span className="picker-blurb">{WIDGET_BLURBS[type]}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  </Modal>
+);
+
+const supportedZones = (): string[] => {
+  try {
+    return (Intl as unknown as { supportedValuesOf: (key: string) => string[] }).supportedValuesOf(
+      'timeZone'
+    );
+  } catch {
+    return ['UTC', 'Europe/London', 'America/New_York', 'Asia/Tokyo'];
+  }
+};
+
+const isZone = (zone: string): boolean => {
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: zone });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+type WidgetDialogProps = {
+  widget: Widget;
+  onSave: (widget: Widget) => void;
+  onClose: () => void;
+};
+
+/** Each widget's own settings, written back as a whole widget. */
+export const WidgetDialog = ({ widget, onSave, onClose }: WidgetDialogProps): JSX.Element => {
+  const [draft, setDraft] = useState<Widget>(widget);
+  const [error, setError] = useState('');
+  const zoneList = useId();
+  const zones = useMemo(supportedZones, []);
+
+  const patch = (changes: Partial<Widget>): void => {
+    setDraft((current) => ({ ...current, ...changes }) as Widget);
+    setError('');
+  };
+
+  const submit = (event: FormEvent): void => {
+    event.preventDefault();
+
+    if (draft.type === 'weather' && !draft.location.trim()) {
+      setError('Choose a place.');
+      return;
+    }
+
+    if (draft.type === 'clock') {
+      const bad = draft.zones.find((zone) => !isZone(zone.zone));
+
+      if (bad) {
+        setError(`“${bad.zone}” isn’t a time zone. Try one like Europe/Paris.`);
+        return;
+      }
+    }
+
+    const cleaned: Widget =
+      draft.type === 'markets'
+        ? {
+            ...draft,
+            symbols: draft.symbols
+              .map((item) => ({ symbol: item.symbol.trim().toUpperCase(), name: item.name.trim() }))
+              .filter((item) => item.symbol)
+          }
+        : draft.type === 'clock'
+          ? { ...draft, zones: draft.zones.filter((zone) => zone.zone.trim()) }
+          : draft.type === 'weather'
+            ? { ...draft, location: draft.location.trim() }
+            : draft;
+
+    onSave(cleaned);
+  };
+
+  const Icon = WIDGET_ICONS[widget.type];
+
+  return (
+    <Modal
+      title={
+        <span className="title-with-icon">
+          <Icon size={18} aria-hidden="true" />
+          {WIDGET_LABELS[widget.type]}
+        </span>
+      }
+      size="sm"
+      onClose={onClose}
+      footer={
+        <>
+          <span className="spacer" />
+          <button type="button" className="btn btn-ghost" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" form="widget-form" className="btn btn-primary">
+            Save
+          </button>
+        </>
+      }
+    >
+      <form id="widget-form" className="form" onSubmit={submit} noValidate>
+        {draft.type === 'weather' && (
+          <>
+            <Field
+              label="Place"
+              hint="A city, or “City, Region, Country” to pick between places with one name."
+              error={error}
+            >
+              <input
+                type="text"
+                value={draft.location}
+                placeholder="Cape Town"
+                data-autofocus=""
+                onChange={(event) => patch({ location: event.target.value })}
+              />
+            </Field>
+            <div className="field">
+              <span className="field-label">Units</span>
+              <Segmented
+                label="Units"
+                value={draft.units}
+                options={[
+                  { value: 'metric', label: '°C, km/h' },
+                  { value: 'imperial', label: '°F, mph' }
+                ]}
+                onChange={(units) => patch({ units })}
+              />
+            </div>
+          </>
+        )}
+
+        {draft.type === 'markets' && (
+          <div className="field">
+            <span className="field-label">Symbols</span>
+            <ul className="rows-editor">
+              {draft.symbols.map((item, index) => (
+                <li key={index}>
+                  <input
+                    type="text"
+                    aria-label="Symbol"
+                    value={item.symbol}
+                    placeholder="AAPL"
+                    spellCheck={false}
+                    data-autofocus={index === 0 ? '' : undefined}
+                    onChange={(event) =>
+                      patch({
+                        symbols: draft.symbols.map((other, position) =>
+                          position === index ? { ...other, symbol: event.target.value } : other
+                        )
+                      })
+                    }
+                  />
+                  <input
+                    type="text"
+                    aria-label="Name"
+                    value={item.name}
+                    placeholder="Name (optional)"
+                    onChange={(event) =>
+                      patch({
+                        symbols: draft.symbols.map((other, position) =>
+                          position === index ? { ...other, name: event.target.value } : other
+                        )
+                      })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    aria-label={`Remove ${item.symbol || 'symbol'}`}
+                    onClick={() =>
+                      patch({
+                        symbols: draft.symbols.filter((_other, position) => position !== index)
+                      })
+                    }
+                  >
+                    <X size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {draft.symbols.length < 12 && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-small"
+                onClick={() =>
+                  patch({ symbols: [...draft.symbols, { symbol: '', name: '' } as MarketSymbol] })
+                }
+              >
+                <Plus size={14} aria-hidden="true" /> Add symbol
+              </button>
+            )}
+            <span className="field-hint">
+              Yahoo Finance symbols: AAPL, ^GSPC for the S&amp;P 500, BTC-USD, EURUSD=X.
+            </span>
+          </div>
+        )}
+
+        {draft.type === 'clock' && (
+          <div className="field">
+            <span className="field-label">Time zones</span>
+            <datalist id={zoneList}>
+              {zones.map((zone) => (
+                <option key={zone} value={zone} />
+              ))}
+            </datalist>
+            <ul className="rows-editor">
+              {draft.zones.map((zone, index) => (
+                <li key={index}>
+                  <input
+                    type="text"
+                    aria-label="Time zone"
+                    list={zoneList}
+                    value={zone.zone}
+                    placeholder="Europe/Paris"
+                    spellCheck={false}
+                    data-autofocus={index === 0 ? '' : undefined}
+                    onChange={(event) =>
+                      patch({
+                        zones: draft.zones.map((other, position) =>
+                          position === index ? { ...other, zone: event.target.value } : other
+                        )
+                      })
+                    }
+                  />
+                  <input
+                    type="text"
+                    aria-label="Label"
+                    value={zone.label}
+                    placeholder="Label (optional)"
+                    onChange={(event) =>
+                      patch({
+                        zones: draft.zones.map((other, position) =>
+                          position === index ? { ...other, label: event.target.value } : other
+                        )
+                      })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    aria-label={`Remove ${zone.label || zone.zone || 'zone'}`}
+                    onClick={() =>
+                      patch({ zones: draft.zones.filter((_other, position) => position !== index) })
+                    }
+                  >
+                    <X size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {error && (
+              <span className="field-error" role="alert">
+                {error}
+              </span>
+            )}
+            {draft.zones.length < 8 && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-small"
+                onClick={() =>
+                  patch({ zones: [...draft.zones, { zone: '', label: '' } as ClockZone] })
+                }
+              >
+                <Plus size={14} aria-hidden="true" /> Add time zone
+              </button>
+            )}
+          </div>
+        )}
+
+        {draft.type === 'hackernews' && (
+          <Field label={`Stories: ${draft.count}`}>
+            <input
+              type="range"
+              min={3}
+              max={15}
+              value={draft.count}
+              data-autofocus=""
+              onChange={(event) => patch({ count: Number(event.target.value) })}
+            />
+          </Field>
+        )}
+
+        {draft.type === 'calendar' && (
+          <div className="field">
+            <span className="field-label">Weeks start on</span>
+            <Segmented
+              label="Weeks start on"
+              value={String(draft.weekStart)}
+              options={[
+                { value: '1', label: 'Monday' },
+                { value: '0', label: 'Sunday' }
+              ]}
+              onChange={(value) => patch({ weekStart: value === '0' ? 0 : 1 })}
+            />
+          </div>
+        )}
+
+        <div className="field">
+          <span className="field-label">Width</span>
+          <Segmented
+            label="Width"
+            value={String(draft.width)}
+            options={
+              WIDTH_OPTIONS.some((option) => option.value === String(draft.width))
+                ? WIDTH_OPTIONS
+                : [...WIDTH_OPTIONS, { value: String(draft.width), label: `${draft.width}/12` }]
+            }
+            onChange={(value) => patch({ width: Number(value) })}
+          />
+        </div>
+      </form>
+    </Modal>
+  );
+};

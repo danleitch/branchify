@@ -1,17 +1,125 @@
 # Branchify
 
-Branchify is a lightweight static React + TypeScript utility for generating clean, consistent Git branch names in seconds.
+Branchify is a personal dashboard for the sites you open every day: groups of
+bookmarks on glass cards over a living koi pond, with weather, markets and news
+alongside. The Branchify branch-name generator is built in as a tool for devs.
 
 It ships as a self-contained Docker image, so you can run it wherever you like —
 a spare port on your laptop, a VPS, or a homelab box behind your own reverse
-proxy. There's no backend, database, or external service: it's a single static
-site served by Nginx. I run my own instance from a self-hosted server at home,
+proxy. There's no backend or database: everything you set up lives in your
+browser's `localStorage`, and you export it as YAML to keep a copy or move it
+to another browser. I run my own instance from a self-hosted server at home,
 and you're free to spin up your own the same way (see
 [Docker (Static Hosting)](#docker-static-hosting) below).
 
 <img width="499" height="361" alt="image" src="https://github.com/user-attachments/assets/460553d6-db0d-4e29-ab59-4c06fa1ae305" />
 
-## Features
+## The Dashboard
+
+- **Bookmarks in groups.** Every bookmark shows its site's favicon, found
+  automatically, with a monogram while it loads or if a site has none. Each
+  group lays its bookmarks out as **cards** (icon, name and description),
+  **tiles** (a launcher of big icons) or a compact **list**.
+- **Drag and snap.** Drag a bookmark to reorder it or carry it into another
+  group. Drag a group or widget by its header to move it. In edit mode, drag a
+  right edge to resize it; widths snap to a 12-column grid, and faint column
+  guides show while you place things. The board packs itself like masonry, so a
+  tall widget never leaves a hole beside it.
+- **Adding is quick.** Press `N` or the `+` button, paste a link anywhere on the
+  page, or drag a link in from another tab and drop it on a group. Names are
+  guessed from the address, and you can change everything later.
+- **Right-click for more.** Bookmarks open in a new tab, copy their link, edit,
+  move to another group or delete. Groups change layout, collapse, move or
+  delete. Every delete can be undone from its toast, or with `Ctrl Z`.
+- **One search box.** Press `/` or `Ctrl K` to find a bookmark by name, address,
+  description or group. Enter opens the top match, an address goes straight
+  there, and anything else is searched on the web with the engine you choose.
+- **Widgets.** Weather from Open-Meteo, in the style of glance's widget: twelve
+  bars across the day with daylight and rain marked. Markets with a month of
+  trend for stocks, indices, FX and crypto. A world clock, this month's
+  calendar, and the top of Hacker News.
+- **Glass over a background you choose.** The koi pond, particles, a wallpaper
+  of your own, or a quiet gradient. Blur and tint are adjustable.
+- **Branchify is a tool on the board.** The **Branchify** button in the toolbar,
+  the `B` key or the address `/#branchify` opens it over the dashboard. Its
+  recent branches still swim as koi, and copying a new branch still earns koi
+  coins.
+
+### Keyboard
+
+| Keys            | Does                           |
+| --------------- | ------------------------------ |
+| `/` or `Ctrl K` | Search bookmarks and the web   |
+| `N`             | Add a bookmark                 |
+| `E`             | Edit the board                 |
+| `B`             | Open Branchify                 |
+| `Ctrl Z`        | Undo a delete                  |
+| `Ctrl V`        | Paste a link to add it         |
+| `Esc`           | Close a dialog, or leave edits |
+
+### Your dashboard as YAML
+
+The whole board is YAML, stored in `localStorage` under `dashboard-config`.
+**Settings → Data & YAML** shows it in an editor you can change and apply,
+exports it as a file, and imports one back. An export also carries your
+Branchify settings, recent branches, background and koi pond, so importing it
+in another browser restores everything.
+
+```yaml
+title: Home
+name: Dan
+newTab: true
+search: google
+clock: 24h
+glass:
+  blur: 18
+  tint: 0.32
+widgets:
+  - type: weather
+    width: 4
+    location: Cape Town
+    units: metric
+  - type: markets
+    width: 4
+    symbols:
+      - symbol: AAPL
+        name: Apple
+      - symbol: BTC-USD
+groups:
+  - name: GitHub
+    icon: si-github
+    width: 4
+    style: cards
+    bookmarks:
+      - name: Pull requests
+        url: https://github.com/pulls
+        description: Reviews waiting on me
+      - name: Notifications
+        url: https://github.com/notifications
+```
+
+Widths are columns of the 12-column board, from 3 to 12. Leave `icon` out for
+the site's favicon, or use the same forms homepage does: `si-github` (Simple
+Icons), `mdi-home` (Material Design Icons), `sh-jellyfin` (selfh.st icons),
+`plex.png` (dashboard-icons), an emoji, or any image address. Anything the
+dashboard doesn't understand is dropped rather than breaking the page.
+
+Imports also read a [homepage](https://gethomepage.dev) `bookmarks.yaml` or
+`services.yaml`, and the bookmarks file every browser exports. Those are added
+to your board, merging into groups with the same name and skipping links you
+already have.
+
+### Where the widgets get their data
+
+Weather comes from [Open-Meteo](https://open-meteo.com) and news from the
+Hacker News API, both straight from the browser with no key. Market prices
+come from Yahoo Finance, which doesn't answer browsers on other sites, so the
+page asks for them at `/api/markets/<symbol>` on its own server. The Vite dev
+and preview servers and the Docker image's Nginx relay that one endpoint. A
+plain static host without the relay shows a note in the markets widget instead
+of prices. Readings are cached in `localStorage` so a reload paints at once.
+
+## Branchify Features
 
 - Fast branch name generation with simple inputs
 - Supports optional ticket numbers while keeping the final branch visible
@@ -81,7 +189,8 @@ All three outputs are one-click copyable for quick pasting into your terminal or
 The default background is a 3D koi pond (three.js, with a 2D fallback when WebGL
 isn't available). Out of the box, each recent branch swims as its own koi, and
 a few resident koi keep the pond occupied. You set how many residents there are
-under **Settings → Fish always in the pond**.
+under **Settings → Appearance → Fish always in the pond**. The koi swim under
+the dashboard's glass, and the gaps between the cards are open water.
 
 ### Say hello
 
@@ -110,8 +219,8 @@ swim over one and under the other.
 - **Drag a fish** to carry it somewhere else in the pond. It rises toward the
   surface while you hold it, and swims calmly on from wherever you set it down.
 
-Clicks on the panel or any dialog are left alone, and the context menu is only
-replaced over open water. With reduced motion on, the pond stays still: fish
+Clicks on the cards, the toolbar or any dialog are left alone, and the context
+menu is only replaced over open water. With reduced motion on, the pond stays still: fish
 can still be clicked for their card, but not carried.
 
 ### Real varieties
@@ -134,8 +243,8 @@ the fish in a listing's photo is exactly the fish that swims in your pond.
 
 ### The market
 
-With the koi pond selected, a koi button appears in the header next to the
-GitHub icon:
+With the koi pond selected, a koi button appears in the dashboard's toolbar,
+beside the Branchify button:
 
 - **Daily stock.** The market lists six koi a day, seeded by the date, so
   everyone starts the day with the same fish. It restocks at local midnight.
@@ -180,6 +289,8 @@ under `branchify-koi-market`.
 
 - [Vite](https://vite.dev/) (build + dev server)
 - React + TypeScript
+- [dnd kit](https://dndkit.com/) for dragging and sorting, [js-yaml](https://github.com/nodeca/js-yaml) for the YAML
+- [Lucide](https://lucide.dev/) icons and the [Inter](https://rsms.me/inter/) typeface, both bundled
 - [Vitest](https://vitest.dev/) + [Testing Library](https://testing-library.com/) for tests
 - ESLint + Prettier for linting and formatting
 - Nginx for static Docker hosting
@@ -188,9 +299,19 @@ under `branchify-koi-market`.
 
 ```
 src/
-  app.tsx                     # Orchestrates state and composes the UI
+  app.tsx                     # The shell: background, koi market, Branchify, dashboard
   main.tsx                    # React entry point
   types.ts                    # Shared domain types
+  dashboard/
+    dashboard.tsx             # The board: dialogs, menus, shortcuts, paste and drop
+    dashboard.css             # Glass, the grid, cards, widgets and dialogs
+    components/               # Board (drag and drop), groups, cards, search, settings
+    widgets/                  # Weather, markets, world clock, calendar, Hacker News
+    hooks/                    # Board state with undo, cached fetches, masonry, resizing
+    lib/                      # The YAML model, imports, icons, URLs and widget data
+  branchify/
+    use-branchify.ts          # The form and naming settings, saved while closed too
+    branchify-sheet.tsx       # Branchify as a tool over the board
   components/
     branch-form.tsx           # Input form (type, ticket, description)
     branch-outputs.tsx        # Generated branch, git command, PR title
@@ -234,7 +355,9 @@ npm install
 npm run dev
 ```
 
-Then open the local URL shown by Vite (typically `http://localhost:5173`).
+Then open the local URL shown by Vite (typically `http://localhost:5173`). The
+dev server also relays `/api/markets` to Yahoo Finance, so the markets widget
+works locally.
 
 ## Testing & Quality
 
@@ -286,6 +409,12 @@ This starts one service:
 
 The included Nginx config supports SPA route refresh via `try_files ... /index.html`.
 
+It also relays the markets widget's `/api/markets/<symbol>` requests to Yahoo
+Finance's chart endpoint, and nothing else. The image installs it as a template
+so Nginx resolves Yahoo with the container's own DNS servers per request, which
+means the container starts even if DNS isn't up yet. Yahoo turns away TLS
+handshakes that look scripted, so the relay offers a browser-like cipher order.
+
 ## GitHub Actions to Docker Hub
 
 The workflow at `.github/workflows/docker-publish.yml` will:
@@ -315,6 +444,8 @@ Pull request builds do not push to Docker Hub. They build against a local fallba
 
 ## Notes
 
-- This is now a **fully static app**: no backend, no runtime Node server.
+- This is a **static app**: no backend, no database, no runtime Node server.
+  Everything you set up stays in your browser; the only thing the server does
+  besides serving files is relay market prices.
 - The Docker image uses multi-stage builds: Node for compile, Nginx for serving.
 - Intended to sit cleanly behind an existing reverse proxy in a homelab setup.

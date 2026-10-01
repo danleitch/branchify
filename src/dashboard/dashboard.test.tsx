@@ -1,0 +1,475 @@
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { App } from '../app';
+import { DASHBOARD_STORAGE_KEY } from './lib/storage';
+import { configToYaml } from './lib/yaml';
+import { sanitizeConfig } from './lib/model';
+
+type User = ReturnType<typeof userEvent.setup>;
+
+/** A board with no widgets, so nothing reaches for the network unless a test wants it to. */
+const seed = (config: unknown): void => {
+  window.localStorage.setItem(DASHBOARD_STORAGE_KEY, configToYaml(sanitizeConfig(config)));
+};
+
+const simpleBoard = {
+  name: 'Sam',
+  groups: [
+    {
+      name: 'Code',
+      bookmarks: [
+        { name: 'GitHub', url: 'https://github.com', description: 'Pull requests' },
+        { name: 'npm', url: 'https://www.npmjs.com' }
+      ]
+    },
+    { name: 'Read', style: 'list', bookmarks: [{ name: 'Lobsters', url: 'https://lobste.rs' }] }
+  ]
+};
+
+const storedYaml = (): string => window.localStorage.getItem(DASHBOARD_STORAGE_KEY) ?? '';
+
+const group = (name: string): HTMLElement => screen.getByRole('region', { name });
+
+const openSettingsTab = async (user: User, tab: string): Promise<HTMLElement> => {
+  await user.click(screen.getByRole('button', { name: 'Dashboard settings' }));
+  const dialog = screen.getByRole('dialog', { name: 'Settings' });
+  await user.click(within(dialog).getByRole('tab', { name: tab }));
+  return dialog;
+};
+
+describe('Dashboard', () => {
+  it('greets the visitor and lays out their groups of bookmarks', () => {
+    seed(simpleBoard);
+    render(<App />);
+
+    expect(screen.getByText(/Good (morning|afternoon|evening|night), Sam/)).toBeInTheDocument();
+
+    const code = group('Code');
+    const github = within(code).getByRole('link', { name: /GitHub/ });
+    expect(github).toHaveAttribute('href', 'https://github.com');
+    expect(github).toHaveAttribute('target', '_blank');
+    expect(within(code).getByText('Pull requests')).toBeInTheDocument();
+    expect(within(group('Read')).getByRole('link', { name: /Lobsters/ })).toBeInTheDocument();
+  });
+
+  it('starts a first visit with an example board, saved as YAML', async () => {
+    render(<App />);
+
+    expect(group('Code')).toBeInTheDocument();
+    await waitFor(() => expect(storedYaml()).toContain('name: Code'));
+    expect(storedYaml()).toContain('type: weather');
+  });
+
+  it('adds a bookmark from the toolbar, guessing its name, and writes it to the YAML', async () => {
+    seed(simpleBoard);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'Add bookmark' }));
+    const dialog = screen.getByRole('dialog', { name: 'Add a bookmark' });
+    await user.type(within(dialog).getByLabelText('Address'), 'gitlab.com/dashboard');
+    expect(within(dialog).getByLabelText('Name')).toHaveValue('GitLab');
+
+    await user.selectOptions(within(dialog).getByLabelText('Group'), 'Code');
+    await user.click(within(dialog).getByRole('button', { name: 'Add bookmark' }));
+
+    expect(within(group('Code')).getByRole('link', { name: /GitLab/ })).toHaveAttribute(
+      'href',
+      'https://gitlab.com/dashboard'
+    );
+    expect(screen.getByText('Added “GitLab” to Code')).toBeInTheDocument();
+    await waitFor(() => expect(storedYaml()).toContain('url: https://gitlab.com/dashboard'));
+  });
+
+  it('adds a bookmark to a group it creates on the way', async () => {
+    seed(simpleBoard);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'Add bookmark' }));
+    const dialog = screen.getByRole('dialog', { name: 'Add a bookmark' });
+    await user.type(within(dialog).getByLabelText('Address'), 'https://plex.example');
+    await user.selectOptions(within(dialog).getByLabelText('Group'), 'New group…');
+    await user.type(within(dialog).getByLabelText('New group name'), 'Media');
+    await user.click(within(dialog).getByRole('button', { name: 'Add bookmark' }));
+
+    expect(within(group('Media')).getByRole('link', { name: /Plex/ })).toBeInTheDocument();
+  });
+
+  it('will not add something that is not an address', async () => {
+    seed(simpleBoard);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'Add bookmark' }));
+    const dialog = screen.getByRole('dialog', { name: 'Add a bookmark' });
+    await user.type(within(dialog).getByLabelText('Address'), 'not a link');
+    await user.click(within(dialog).getByRole('button', { name: 'Add bookmark' }));
+
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('doesn’t look like a web address');
+  });
+
+  it('starts a bookmark from a link pasted onto the board', async () => {
+    seed(simpleBoard);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.paste('https://developer.mozilla.org/en-US/');
+
+    const dialog = screen.getByRole('dialog', { name: 'Add a bookmark' });
+    expect(within(dialog).getByLabelText('Address')).toHaveValue(
+      'https://developer.mozilla.org/en-US/'
+    );
+    expect(within(dialog).getByLabelText('Name')).toHaveValue('Mozilla');
+  });
+
+  it('deletes a bookmark from its menu, and can take it back', async () => {
+    seed(simpleBoard);
+    const user = userEvent.setup();
+    render(<App />);
+
+    fireEvent.contextMenu(within(group('Code')).getByRole('link', { name: /npm/ }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
+
+    expect(within(group('Code')).queryByRole('link', { name: /npm/ })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+
+    expect(within(group('Code')).getByRole('link', { name: /npm/ })).toBeInTheDocument();
+  });
+
+  it('moves a bookmark to another group from its menu', async () => {
+    seed(simpleBoard);
+    const user = userEvent.setup();
+    render(<App />);
+
+    fireEvent.contextMenu(within(group('Code')).getByRole('link', { name: /npm/ }));
+    await user.click(screen.getByRole('menuitem', { name: 'Move to' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Read' }));
+
+    expect(within(group('Read')).getByRole('link', { name: /npm/ })).toBeInTheDocument();
+    expect(within(group('Code')).queryByRole('link', { name: /npm/ })).not.toBeInTheDocument();
+  });
+
+  it('edits a bookmark in edit mode', async () => {
+    seed(simpleBoard);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'Edit the board' }));
+    expect(screen.getByRole('toolbar', { name: 'Edit the board' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Edit GitHub' }));
+    const dialog = screen.getByRole('dialog', { name: 'Edit bookmark' });
+    await user.clear(within(dialog).getByLabelText('Name'));
+    await user.type(within(dialog).getByLabelText('Name'), 'My repos');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    expect(within(group('Code')).getByRole('link', { name: /My repos/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^Done$/ }));
+    expect(screen.queryByRole('toolbar', { name: 'Edit the board' })).not.toBeInTheDocument();
+  });
+
+  it('collapses a group and remembers it', async () => {
+    seed(simpleBoard);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'Collapse Read' }));
+
+    expect(within(group('Read')).queryByRole('link')).not.toBeInTheDocument();
+    await waitFor(() => expect(storedYaml()).toContain('collapsed: true'));
+  });
+
+  it('creates a group from the edit dock and changes its layout from its menu', async () => {
+    seed(simpleBoard);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.keyboard('e');
+    await user.click(
+      within(screen.getByRole('toolbar', { name: 'Edit the board' })).getByRole('button', {
+        name: 'Group'
+      })
+    );
+    const dialog = screen.getByRole('dialog', { name: 'New group' });
+    await user.type(within(dialog).getByLabelText('Name'), 'GitHub');
+    await user.click(within(dialog).getByRole('radio', { name: /Tiles/ }));
+    await user.click(within(dialog).getByRole('button', { name: 'Create group' }));
+
+    expect(within(group('GitHub')).getByText('Drop bookmarks here')).toBeInTheDocument();
+    await waitFor(() => expect(storedYaml()).toMatch(/name: GitHub\n\s+width: 4\n\s+style: tiles/));
+  });
+
+  it('finds bookmarks from the search box and opens the one chosen', async () => {
+    seed(simpleBoard);
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.keyboard('/');
+    expect(screen.getByRole('combobox', { name: 'Search' })).toHaveFocus();
+    await user.keyboard('lob');
+
+    const results = screen.getByRole('listbox');
+    expect(within(results).getByRole('option', { name: /Lobsters/ })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(
+      within(results).getByRole('option', { name: /Search Google for lob/ })
+    ).toBeInTheDocument();
+
+    await user.keyboard('{Enter}');
+    expect(open).toHaveBeenCalledWith('https://lobste.rs', '_blank', 'noopener,noreferrer');
+  });
+
+  it('searches the web for anything that is not a bookmark', async () => {
+    seed({ ...simpleBoard, search: 'duckduckgo' });
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('combobox', { name: 'Search' }));
+    await user.keyboard('css grid{Enter}');
+
+    expect(open).toHaveBeenCalledWith(
+      'https://duckduckgo.com/?q=css%20grid',
+      '_blank',
+      'noopener,noreferrer'
+    );
+  });
+
+  it('applies YAML edited in Settings, and says where it is wrong', async () => {
+    seed(simpleBoard);
+    const user = userEvent.setup();
+    render(<App />);
+
+    const dialog = await openSettingsTab(user, 'Data & YAML');
+    const editor = within(dialog).getByLabelText('Dashboard YAML');
+
+    fireEvent.change(editor, { target: { value: 'title: Home\ngroups:\n  - name: [oops\n' } });
+    await user.click(within(dialog).getByRole('button', { name: /Apply/ }));
+    expect(within(dialog).getByRole('alert')).toHaveTextContent(/^Line \d+:/);
+
+    fireEvent.change(editor, {
+      target: {
+        value:
+          'title: Work\ngroups:\n  - name: Tools\n    bookmarks:\n      - name: Linear\n        url: https://linear.app\n'
+      }
+    });
+    await user.click(within(dialog).getByRole('button', { name: /Apply/ }));
+
+    expect(document.title).toBe('Work');
+    expect(within(group('Tools')).getByRole('link', { name: /Linear/ })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Code' })).not.toBeInTheDocument();
+  });
+
+  it('imports a homepage bookmarks file into the board', async () => {
+    seed(simpleBoard);
+    const user = userEvent.setup();
+    render(<App />);
+
+    const dialog = await openSettingsTab(user, 'Data & YAML');
+    const input = dialog.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const file = new File(
+      [
+        '- Media:\n    - Jellyfin:\n        - href: http://jellyfin.home\n          icon: sh-jellyfin\n'
+      ],
+      'bookmarks.yaml',
+      { type: 'text/yaml' }
+    );
+    await user.upload(input, file);
+
+    const confirm = await screen.findByRole('dialog', { name: 'Import' });
+    expect(within(confirm).getByText(/homepage bookmarks file/)).toBeInTheDocument();
+    await user.click(within(confirm).getByRole('button', { name: 'Add to my board' }));
+
+    expect(within(group('Media')).getByRole('link', { name: /Jellyfin/ })).toBeInTheDocument();
+    expect(group('Code')).toBeInTheDocument();
+  });
+
+  it('restores a full export, Branchify settings and all', async () => {
+    seed(simpleBoard);
+    const user = userEvent.setup();
+    render(<App />);
+
+    const exported = `title: Restored
+groups:
+  - name: Back
+    bookmarks:
+      - name: Home
+        url: https://example.com
+saved:
+  background: plain
+  branchify-settings:
+    typeSeparator: _
+`;
+    const dialog = await openSettingsTab(user, 'Data & YAML');
+    await user.upload(
+      dialog.querySelector<HTMLInputElement>('input[type="file"]')!,
+      new File([exported], 'dashboard.yaml', { type: 'text/yaml' })
+    );
+    await user.click(
+      within(await screen.findByRole('dialog', { name: 'Import' })).getByRole('button', {
+        name: 'Restore everything'
+      })
+    );
+
+    expect(await screen.findByRole('region', { name: 'Back' })).toBeInTheDocument();
+    expect(document.querySelector('canvas.koi-pond')).not.toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem('branchify-settings')!)).toMatchObject({
+      typeSeparator: '_'
+    });
+    expect(screen.getByText('Restored 1 bookmarks and your settings')).toBeInTheDocument();
+  });
+
+  it('exports the board and everything else as a YAML download', async () => {
+    seed(simpleBoard);
+    window.localStorage.setItem('branchify-background', 'particles');
+    const createObjectURL = vi.fn<(blob: Blob) => string>(() => 'blob:dashboard');
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL, revokeObjectURL }));
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const user = userEvent.setup();
+    render(<App />);
+
+    const dialog = await openSettingsTab(user, 'Data & YAML');
+    await user.click(within(dialog).getByRole('button', { name: /Export YAML/ }));
+
+    expect(click).toHaveBeenCalled();
+    const yaml = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.readAsText(createObjectURL.mock.calls[0][0]);
+    });
+    expect(yaml).toContain('name: GitHub');
+    expect(yaml).toContain('background: particles');
+    expect(screen.getByText(/^Exported dashboard-\d{4}-\d{2}-\d{2}\.yaml$/)).toBeInTheDocument();
+  });
+
+  it('offers a way in when the board is empty', async () => {
+    seed({ groups: [] });
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(screen.getByRole('heading', { name: 'Your board is empty' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Use the example/ }));
+
+    expect(group('Code')).toBeInTheDocument();
+  });
+});
+
+describe('Dashboard widgets', () => {
+  const json = (body: unknown): Response =>
+    new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+
+  it('shows the weather for a place from Open-Meteo', async () => {
+    seed({ widgets: [{ type: 'weather', location: 'Oslo' }], groups: [] });
+    const day = Math.floor(Date.now() / 1000 / 86400) * 86400;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        url.includes('geocoding')
+          ? json({
+              results: [
+                {
+                  name: 'Oslo',
+                  country: 'Norway',
+                  latitude: 59.9,
+                  longitude: 10.7,
+                  timezone: 'UTC'
+                }
+              ]
+            })
+          : json({
+              current: {
+                temperature_2m: 7.4,
+                apparent_temperature: 4.9,
+                weather_code: 3,
+                is_day: 1,
+                wind_speed_10m: 11,
+                relative_humidity_2m: 70
+              },
+              hourly: {
+                temperature_2m: Array.from({ length: 24 }, (_unused, hour) => hour / 2),
+                precipitation_probability: Array.from({ length: 24 }, () => 0)
+              },
+              daily: {
+                time: Array.from({ length: 6 }, (_unused, index) => day + index * 86400),
+                sunrise: Array.from({ length: 6 }, () => day + 6 * 3600),
+                sunset: Array.from({ length: 6 }, () => day + 19 * 3600),
+                temperature_2m_max: [9, 10, 11, 12, 13, 14],
+                temperature_2m_min: [2, 3, 4, 5, 6, 7],
+                weather_code: [3, 3, 3, 3, 3, 3]
+              }
+            })
+      )
+    );
+    render(<App />);
+
+    const widget = screen.getByRole('region', { name: 'Weather' });
+    expect(await within(widget).findByText('Overcast')).toBeInTheDocument();
+    expect(within(widget).getByText('Oslo, Norway')).toBeInTheDocument();
+    expect(within(widget).getByText(/Feels 5°/)).toBeInTheDocument();
+  });
+
+  it('shows prices with their trend through the markets proxy', async () => {
+    seed({
+      widgets: [{ type: 'markets', symbols: [{ symbol: 'AAPL', name: 'Apple' }] }],
+      groups: []
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        json({
+          chart: {
+            result: [
+              {
+                meta: { symbol: 'AAPL', currency: 'USD', regularMarketPrice: 210.5, priceHint: 2 },
+                indicators: { quote: [{ close: [200, 205, 210.5] }] }
+              }
+            ]
+          }
+        })
+      )
+    );
+    render(<App />);
+
+    const widget = screen.getByRole('region', { name: 'Markets' });
+    expect(await within(widget).findByText('$210.50')).toBeInTheDocument();
+    expect(within(widget).getByText('+2.68%')).toBeInTheDocument();
+  });
+
+  it('explains when the host has no markets proxy', async () => {
+    seed({ widgets: [{ type: 'markets', symbols: ['AAPL'] }], groups: [] });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () => new Response('<!doctype html>', { headers: { 'content-type': 'text/html' } })
+      )
+    );
+    render(<App />);
+
+    const widget = screen.getByRole('region', { name: 'Markets' });
+    expect(await within(widget).findByRole('alert')).toHaveTextContent(
+      /need the dashboard’s proxy/
+    );
+  });
+
+  it('lets a widget be pointed somewhere else', async () => {
+    seed({ widgets: [{ type: 'calendar' }], groups: [] });
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(screen.getByRole('region', { name: 'Calendar' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Configure Calendar' }));
+    const dialog = screen.getByRole('dialog', { name: 'Calendar' });
+    await user.click(within(dialog).getByRole('radio', { name: 'Sunday' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(storedYaml()).toContain('weekStart: 0'));
+  });
+});
