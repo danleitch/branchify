@@ -16,7 +16,8 @@ export const TicketPrompt = ({
     <h2>Ticket prompt</h2>
     <p className="prompt-hint">
       Paste the acceptance criteria and description from the Jira ticket to build a prompt for your
-      AI assistant. The ticket ID above is included automatically.
+      AI assistant. The ticket ID above is included automatically, and the surrounding header and
+      footer are editable in Settings.
     </p>
 
     <div className="form-grid">

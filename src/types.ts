@@ -30,6 +30,10 @@ export type BranchSettings = BranchSeparators & {
   branchTypes: string[];
   /** Which "shorten with AI" icons appear beside the description field. */
   aiHandoffTargets: AiProvider[];
+  /** Ticket prompt intro. A line containing `{ticket}` is dropped when there is no ticket ID. */
+  promptHeader: string;
+  /** Ticket prompt closing text. Also supports `{ticket}`. */
+  promptFooter: string;
 };
 
 /** Which backdrop the app draws behind the panel. */

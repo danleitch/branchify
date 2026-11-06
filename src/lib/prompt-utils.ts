@@ -1,4 +1,9 @@
 import { normalizeTicket } from './branch-utils';
+import {
+  DEFAULT_PROMPT_FOOTER,
+  DEFAULT_PROMPT_HEADER,
+  TICKET_PLACEHOLDER
+} from './prompt-templates';
 
 export type TicketPromptInput = {
   ticketNumber: string;
@@ -6,27 +11,44 @@ export type TicketPromptInput = {
   description: string;
 };
 
-const PROMPT_INTRO = 'I am starting a new ticket.';
+/** The editable intro and closing text, as held in settings. */
+export type PromptTemplates = {
+  promptHeader: string;
+  promptFooter: string;
+};
 
-const PROMPT_OUTRO =
-  'If there are any attached links or images on the ticket, please ask me for that material and I will download it or make it available for you.';
-
-const PROMPT_FOOTER =
-  "Let's do this as a plan first — I want to plan before anything gets built. Then please explain the problem to me simply, the solution or potential solution, and how things will change going forward if applicable.";
+export const DEFAULT_PROMPT_TEMPLATES: PromptTemplates = {
+  promptHeader: DEFAULT_PROMPT_HEADER,
+  promptFooter: DEFAULT_PROMPT_FOOTER
+};
 
 /** Trims the edges of a pasted block while preserving the author's internal line breaks. */
 const trimBlock = (value: string): string => value.replace(/^\s+|\s+$/g, '');
 
 /**
- * Builds a ready-to-paste prompt from a Jira ticket's acceptance criteria and
- * description. Returns '' until at least one of the two blocks has content, so
- * the UI can stay quiet while the fields are empty.
+ * Fills in the ticket ID. Lines that mention the ticket are dropped entirely
+ * when there isn't one, so the default header degrades from two lines to
+ * "I am starting a new ticket." rather than trailing an empty label.
  */
-export const buildTicketPrompt = ({
-  ticketNumber,
-  acceptanceCriteria,
-  description
-}: TicketPromptInput): string => {
+const renderTemplate = (template: string, ticket: string): string =>
+  trimBlock(
+    template
+      .split('\n')
+      .filter((line) => Boolean(ticket) || !line.includes(TICKET_PLACEHOLDER))
+      .map((line) => line.split(TICKET_PLACEHOLDER).join(ticket))
+      .join('\n')
+  );
+
+/**
+ * Builds a ready-to-paste prompt from a Jira ticket's acceptance criteria and
+ * description, wrapped in the configured header and footer. Returns '' until at
+ * least one of the two blocks has content, so the UI can stay quiet while the
+ * fields are empty.
+ */
+export const buildTicketPrompt = (
+  { ticketNumber, acceptanceCriteria, description }: TicketPromptInput,
+  { promptHeader, promptFooter }: PromptTemplates = DEFAULT_PROMPT_TEMPLATES
+): string => {
   const criteria = trimBlock(acceptanceCriteria);
   const body = trimBlock(description);
 
@@ -35,7 +57,13 @@ export const buildTicketPrompt = ({
   }
 
   const ticket = normalizeTicket(ticketNumber);
-  const sections = [ticket ? `${PROMPT_INTRO} This is the Jira ticket: ${ticket}` : PROMPT_INTRO];
+  const header = renderTemplate(promptHeader, ticket);
+  const footer = renderTemplate(promptFooter, ticket);
+  const sections = [];
+
+  if (header) {
+    sections.push(header);
+  }
 
   if (criteria) {
     sections.push(`Acceptance criteria:\n${criteria}`);
@@ -45,7 +73,9 @@ export const buildTicketPrompt = ({
     sections.push(`Description:\n${body}`);
   }
 
-  sections.push(PROMPT_OUTRO, PROMPT_FOOTER);
+  if (footer) {
+    sections.push(footer);
+  }
 
   return sections.join('\n\n');
 };

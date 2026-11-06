@@ -239,10 +239,29 @@ body {
   font-weight: 700;
 }
 
+.settings-textarea {
+  width: 100%;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.settings-textarea textarea {
+  min-height: 4rem;
+  font-size: 0.9rem;
+}
+
 .settings-hint {
   margin: 0.15rem 0 0;
   font-size: 0.85rem;
   color: #9ca3af;
+}
+
+.settings-code {
+  display: inline;
+  width: auto;
+  margin: 0;
+  padding: 0.05rem 0.3rem;
+  font-size: 0.85em;
 }
 
 .settings-error {

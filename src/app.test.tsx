@@ -740,6 +740,89 @@ describe('App', () => {
     });
   });
 
+  describe('customising the prompt header and footer', () => {
+    const openSettings = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
+      await user.click(screen.getByRole('button', { name: 'Settings' }));
+      return screen.getByRole('dialog', { name: 'Settings' });
+    };
+
+    const promptBlock = (): HTMLElement =>
+      screen.getByRole('heading', { name: 'Generated prompt' }).closest('article') as HTMLElement;
+
+    it('starts from the defaults that ship with the app', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openSettings(user);
+
+      expect(within(dialog).getByLabelText('Prompt header')).toHaveValue(
+        'I am starting a new ticket.\nThis is the Jira ticket: {ticket}'
+      );
+      expect(within(dialog).getByLabelText('Prompt footer')).toHaveTextContent(
+        "Let's do this as a plan first"
+      );
+      expect(within(dialog).getByRole('button', { name: 'Restore default prompt' })).toBeDisabled();
+    });
+
+    it('uses an edited header and footer in the generated prompt', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openSettings(user);
+      const header = within(dialog).getByLabelText('Prompt header');
+      const footer = within(dialog).getByLabelText('Prompt footer');
+      await user.clear(header);
+      // paste, not type: userEvent reads `{...}` in type() as a key descriptor.
+      await user.paste('Picking up {ticket} now.');
+      await user.clear(footer);
+      await user.type(footer, 'Keep it small.');
+      await user.click(within(dialog).getByRole('button', { name: 'Close settings' }));
+
+      await user.type(screen.getByLabelText('Ticket ID'), 'ACME-5');
+      await user.type(screen.getByLabelText('Acceptance criteria'), 'It works');
+
+      const block = promptBlock();
+      expect(block).toHaveTextContent('Picking up ACME-5 now.');
+      expect(block).toHaveTextContent('Keep it small.');
+      expect(block).not.toHaveTextContent("Let's do this as a plan first");
+    });
+
+    it('restores the defaults on request', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openSettings(user);
+      const header = within(dialog).getByLabelText('Prompt header');
+      await user.clear(header);
+      await user.type(header, 'Something else');
+
+      const restore = within(dialog).getByRole('button', { name: 'Restore default prompt' });
+      expect(restore).toBeEnabled();
+      await user.click(restore);
+
+      expect(within(dialog).getByLabelText('Prompt header')).toHaveValue(
+        'I am starting a new ticket.\nThis is the Jira ticket: {ticket}'
+      );
+      expect(restore).toBeDisabled();
+    });
+
+    it('persists edited templates across a remount', async () => {
+      const user = userEvent.setup({ delay: null });
+      const { unmount } = render(<App />);
+
+      const dialog = await openSettings(user);
+      const footer = within(dialog).getByLabelText('Prompt footer');
+      await user.clear(footer);
+      await user.type(footer, 'House style footer');
+      unmount();
+
+      render(<App />);
+      const reopened = await openSettings(user);
+
+      expect(within(reopened).getByLabelText('Prompt footer')).toHaveValue('House style footer');
+    });
+  });
+
   it('restores persisted form values from localStorage', () => {
     window.localStorage.setItem(
       'branchify-form',

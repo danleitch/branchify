@@ -1,4 +1,5 @@
 import type { BranchSettings, PersistedForm } from '../types';
+import { DEFAULT_PROMPT_FOOTER, DEFAULT_PROMPT_HEADER } from './prompt-templates';
 
 export const DEFAULT_BRANCH_TYPES: readonly string[] = [
   'bugfix',
@@ -21,7 +22,9 @@ export const DEFAULT_NAMING_SETTINGS: BranchSettings = {
   typeSeparator: '/',
   ticketSeparator: '-',
   branchTypes: [...DEFAULT_BRANCH_TYPES],
-  aiHandoffTargets: ['chatgpt', 'claude']
+  aiHandoffTargets: ['chatgpt', 'claude'],
+  promptHeader: DEFAULT_PROMPT_HEADER,
+  promptFooter: DEFAULT_PROMPT_FOOTER
 };
 
 export type BranchInput = {

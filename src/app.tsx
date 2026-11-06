@@ -20,7 +20,7 @@ import {
   generatePullRequestTitle,
   parseBranchName
 } from './lib/branch-utils';
-import { buildTicketPrompt } from './lib/prompt-utils';
+import { DEFAULT_PROMPT_TEMPLATES, buildTicketPrompt } from './lib/prompt-utils';
 import {
   BACKGROUND_STORAGE_KEY,
   BASE_FISH_STORAGE_KEY,
@@ -149,9 +149,12 @@ export const App = (): JSX.Element => {
     [form, settings]
   );
   const generatedPrompt = useMemo(
-    () => buildTicketPrompt({ ticketNumber: form.ticketNumber, ...prompt }),
-    [form.ticketNumber, prompt]
+    () => buildTicketPrompt({ ticketNumber: form.ticketNumber, ...prompt }, settings),
+    [form.ticketNumber, prompt, settings]
   );
+  const promptTemplatesEdited =
+    settings.promptHeader !== DEFAULT_PROMPT_TEMPLATES.promptHeader ||
+    settings.promptFooter !== DEFAULT_PROMPT_TEMPLATES.promptFooter;
   const gitCommand = branchName ? `git checkout -b "${branchName}"` : '';
   const namingPattern = `<type>${settings.typeSeparator}<ticket-id>${settings.ticketSeparator}<description>`;
 
@@ -251,6 +254,10 @@ export const App = (): JSX.Element => {
 
   const handleTicketSeparatorChange = (value: string): void => {
     handleSettingsChange({ ticketSeparator: value });
+  };
+
+  const handleResetPromptTemplates = (): void => {
+    handleSettingsChange(DEFAULT_PROMPT_TEMPLATES);
   };
 
   const handleAddType = (type: string): void => {
@@ -403,6 +410,12 @@ export const App = (): JSX.Element => {
             onAiHandoffTargetsChange={(aiHandoffTargets) =>
               handleSettingsChange({ aiHandoffTargets })
             }
+            promptHeader={settings.promptHeader}
+            promptFooter={settings.promptFooter}
+            onPromptHeaderChange={(promptHeader) => handleSettingsChange({ promptHeader })}
+            onPromptFooterChange={(promptFooter) => handleSettingsChange({ promptFooter })}
+            onResetPromptTemplates={handleResetPromptTemplates}
+            promptTemplatesEdited={promptTemplatesEdited}
             onAddType={handleAddType}
             onRemoveType={handleRemoveType}
             onResetTypes={handleResetTypes}

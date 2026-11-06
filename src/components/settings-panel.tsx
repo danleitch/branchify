@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { AI_PROVIDERS, AI_PROVIDER_LABELS } from '../lib/ai-handoff';
 import { MAX_BRANCH_TYPE_LENGTH, sanitizeBranchType } from '../lib/branch-utils';
 import { MAX_BASE_FISH, MIN_BASE_FISH } from '../lib/koi';
+import { MAX_PROMPT_TEMPLATE_LENGTH, TICKET_PLACEHOLDER } from '../lib/prompt-templates';
 import { BACKGROUND_STYLES } from '../lib/storage';
 import type { AiProvider, BackgroundStyle } from '../types';
 
@@ -34,6 +35,14 @@ type SettingsPanelProps = {
   onOpenParticles?: () => void;
   aiHandoffTargets: AiProvider[];
   onAiHandoffTargetsChange: (targets: AiProvider[]) => void;
+  /** Intro and closing text wrapped around the ticket prompt. */
+  promptHeader: string;
+  promptFooter: string;
+  onPromptHeaderChange: (value: string) => void;
+  onPromptFooterChange: (value: string) => void;
+  onResetPromptTemplates: () => void;
+  /** False while both templates still match the defaults. */
+  promptTemplatesEdited: boolean;
   onAddType: (type: string) => void;
   onRemoveType: (type: string) => void;
   onResetTypes: () => void;
@@ -53,6 +62,12 @@ export const SettingsPanel = ({
   onOpenParticles,
   aiHandoffTargets,
   onAiHandoffTargetsChange,
+  promptHeader,
+  promptFooter,
+  onPromptHeaderChange,
+  onPromptFooterChange,
+  onResetPromptTemplates,
+  promptTemplatesEdited,
   onAddType,
   onRemoveType,
   onResetTypes,
@@ -196,6 +211,45 @@ export const SettingsPanel = ({
           <p className="settings-hint">
             Choose which AI icons appear beside the description field.
           </p>
+        </fieldset>
+
+        <fieldset className="settings-fieldset">
+          <legend>Ticket prompt</legend>
+          <label className="settings-textarea">
+            Prompt header
+            <textarea
+              rows={3}
+              maxLength={MAX_PROMPT_TEMPLATE_LENGTH}
+              value={promptHeader}
+              onChange={(event) => onPromptHeaderChange(event.target.value)}
+            />
+          </label>
+
+          <label className="settings-textarea">
+            Prompt footer
+            <textarea
+              rows={6}
+              maxLength={MAX_PROMPT_TEMPLATE_LENGTH}
+              value={promptFooter}
+              onChange={(event) => onPromptFooterChange(event.target.value)}
+            />
+          </label>
+
+          <p className="settings-hint">
+            These wrap the acceptance criteria and description. Write{' '}
+            <code className="settings-code">{TICKET_PLACEHOLDER}</code> wherever you want the ticket
+            ID; a line containing it is left out when there is no ticket. Leave either box empty to
+            drop it entirely.
+          </p>
+
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={!promptTemplatesEdited}
+            onClick={onResetPromptTemplates}
+          >
+            Restore default prompt
+          </button>
         </fieldset>
 
         <fieldset className="settings-fieldset">

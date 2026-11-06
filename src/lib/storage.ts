@@ -12,6 +12,7 @@ import { DEFAULT_NAMING_SETTINGS, sanitizeBranchType } from './branch-utils';
 import { cleanFishName } from './fish-name';
 import { DEFAULT_BASE_FISH, MAX_BASE_FISH, MIN_BASE_FISH } from './koi';
 import { sanitizeLilyPlacements, type LilyPlacements } from './pond-decor';
+import { MAX_PROMPT_TEMPLATE_LENGTH } from './prompt-templates';
 import {
   DEFAULT_PARTICLE_SETTINGS,
   sanitizeParticleSettings,
@@ -142,6 +143,14 @@ const sanitizeAiHandoffTargets = (value: unknown, legacyShowAiLinks: unknown): A
   return [...DEFAULT_SETTINGS.aiHandoffTargets];
 };
 
+/**
+ * Caps a prompt template's length, keeping it otherwise verbatim: the author's
+ * line breaks are the whole point. An empty string is a deliberate choice to
+ * have no header or footer, so only a non-string falls back to the default.
+ */
+const sanitizePromptTemplate = (value: unknown, fallback: string): string =>
+  typeof value === 'string' ? value.slice(0, MAX_PROMPT_TEMPLATE_LENGTH) : fallback;
+
 export const parseSettings = (raw: string | null): BranchSettings => {
   if (!raw) {
     return DEFAULT_SETTINGS;
@@ -154,7 +163,9 @@ export const parseSettings = (raw: string | null): BranchSettings => {
       typeSeparator: sanitizeSeparator(parsed.typeSeparator, DEFAULT_SETTINGS.typeSeparator),
       ticketSeparator: sanitizeSeparator(parsed.ticketSeparator, DEFAULT_SETTINGS.ticketSeparator),
       branchTypes: sanitizeBranchTypes(parsed.branchTypes),
-      aiHandoffTargets: sanitizeAiHandoffTargets(parsed.aiHandoffTargets, parsed.showAiLinks)
+      aiHandoffTargets: sanitizeAiHandoffTargets(parsed.aiHandoffTargets, parsed.showAiLinks),
+      promptHeader: sanitizePromptTemplate(parsed.promptHeader, DEFAULT_SETTINGS.promptHeader),
+      promptFooter: sanitizePromptTemplate(parsed.promptFooter, DEFAULT_SETTINGS.promptFooter)
     };
   } catch {
     return DEFAULT_SETTINGS;

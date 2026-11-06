@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_BASE_FISH, MAX_BASE_FISH, MIN_BASE_FISH } from './koi';
+import { MAX_PROMPT_TEMPLATE_LENGTH } from './prompt-templates';
 import {
   DEFAULT_SETTINGS,
   EMPTY_FORM,
@@ -112,6 +113,35 @@ describe('parseSettings', () => {
 
   it('falls back to defaults for non-string separator values', () => {
     expect(parseSettings(JSON.stringify({ typeSeparator: 42 }))).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('keeps custom prompt templates verbatim, line breaks and all', () => {
+    const promptHeader = 'Starting {ticket}\nsecond line';
+
+    expect(parseSettings(JSON.stringify({ promptHeader }))).toEqual({
+      ...DEFAULT_SETTINGS,
+      promptHeader
+    });
+  });
+
+  it('treats an empty prompt template as a deliberate choice, not a missing value', () => {
+    expect(parseSettings(JSON.stringify({ promptHeader: '', promptFooter: '' }))).toEqual({
+      ...DEFAULT_SETTINGS,
+      promptHeader: '',
+      promptFooter: ''
+    });
+  });
+
+  it('falls back to the default when a prompt template is not a string', () => {
+    expect(parseSettings(JSON.stringify({ promptHeader: 42, promptFooter: null }))).toEqual(
+      DEFAULT_SETTINGS
+    );
+  });
+
+  it('caps the length of a prompt template', () => {
+    const parsed = parseSettings(JSON.stringify({ promptFooter: 'x'.repeat(5000) }));
+
+    expect(parsed.promptFooter).toBe('x'.repeat(MAX_PROMPT_TEMPLATE_LENGTH));
   });
 
   it('defaults branch types for settings saved before they were configurable', () => {

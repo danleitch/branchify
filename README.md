@@ -17,7 +17,8 @@ and you're free to spin up your own the same way (see
 - Supports optional ticket numbers while keeping the final branch visible
 - Generates PR titles like `feat/BRF-123: Description.`
 - Copies the generated branch name and full `git checkout -b` command
-- Builds a copy-paste AI prompt from a Jira ticket's acceptance criteria and description
+- Builds a copy-paste AI prompt from a Jira ticket's acceptance criteria and description,
+  with an editable header and footer
 - Persists your latest values and recent branches in `localStorage`
 - Fully static frontend output (`dist/`) with no backend runtime
 - Mobile-friendly, minimal UI
@@ -84,7 +85,8 @@ an AI assistant. Paste the **acceptance criteria** and the **description** strai
 out of the Jira ticket and Branchify assembles a single copy-paste block:
 
 ```text
-I am starting a new ticket. This is the Jira ticket: BRF-123
+I am starting a new ticket.
+This is the Jira ticket: BRF-123
 
 Acceptance criteria:
 - Login works on mobile Safari
@@ -112,7 +114,24 @@ how things will change going forward if applicable.
   then a plain-language explanation of the problem, the proposed fix, and what
   changes from here on
 
-Contents persist in `localStorage` under `branchify-prompt`.
+Contents persist in `localStorage` under `branchify-prompt`. Note this is your
+current draft only, not a history: it survives a refresh, but it isn't kept per
+branch, so loading a recent branch won't bring its prompt back.
+
+### Editing the header and footer
+
+The text wrapped around the criteria and description is yours to change, under
+**Settings → Ticket prompt**. The defaults above are the starting point, and
+**Restore default prompt** puts them back.
+
+- Write `{ticket}` wherever the ticket ID should appear, as often as you like
+- **A line containing `{ticket}` is dropped when there is no ticket ID**, which
+  is why the default header is two lines: with no ticket you get just
+  "I am starting a new ticket." rather than a dangling label
+- Leave either box empty to drop that part of the prompt completely
+- Up to 2,000 characters each
+
+Both templates live with your other naming settings in `branchify-settings`.
 
 ## Koi Pond & Market
 
@@ -246,6 +265,7 @@ src/
   lib/
     branch-utils.ts           # Pure branch/PR-title formatting logic
     prompt-utils.ts           # Pure ticket-prompt assembly
+    prompt-templates.ts       # Default prompt header/footer and the {ticket} token
     storage.ts                # Safe localStorage helpers + parsing
     koi-varieties.ts          # The nishikigoi catalogue, as pattern recipes
     koi-genome.ts             # Variety + traits + seed → a koi's exact look
