@@ -95,6 +95,10 @@ Users report that signing in on mobile silently fails.
 
 If there are any attached links or images on the ticket, please ask me for that
 material and I will download it or make it available for you.
+
+Let's do this as a plan first — I want to plan before anything gets built. Then
+please explain the problem to me simply, the solution or potential solution, and
+how things will change going forward if applicable.
 ```
 
 - The ticket ID is taken from the **Ticket ID** field above, so you only type it once
@@ -104,6 +108,9 @@ material and I will download it or make it available for you.
 - The block only appears once there's something to show, and **Reset** clears it
 - The closing request means the assistant asks you for any attachments or linked
   material it can't reach itself
+- The footer keeps the assistant in planning mode: a plan before any building,
+  then a plain-language explanation of the problem, the proposed fix, and what
+  changes from here on
 
 Contents persist in `localStorage` under `branchify-prompt`.
 

@@ -11,6 +11,9 @@ const PROMPT_INTRO = 'I am starting a new ticket.';
 const PROMPT_OUTRO =
   'If there are any attached links or images on the ticket, please ask me for that material and I will download it or make it available for you.';
 
+const PROMPT_FOOTER =
+  "Let's do this as a plan first — I want to plan before anything gets built. Then please explain the problem to me simply, the solution or potential solution, and how things will change going forward if applicable.";
+
 /** Trims the edges of a pasted block while preserving the author's internal line breaks. */
 const trimBlock = (value: string): string => value.replace(/^\s+|\s+$/g, '');
 
@@ -42,7 +45,7 @@ export const buildTicketPrompt = ({
     sections.push(`Description:\n${body}`);
   }
 
-  sections.push(PROMPT_OUTRO);
+  sections.push(PROMPT_OUTRO, PROMPT_FOOTER);
 
   return sections.join('\n\n');
 };

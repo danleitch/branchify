@@ -4,8 +4,11 @@ import { buildTicketPrompt } from './prompt-utils';
 const OUTRO =
   'If there are any attached links or images on the ticket, please ask me for that material and I will download it or make it available for you.';
 
+const FOOTER =
+  "Let's do this as a plan first — I want to plan before anything gets built. Then please explain the problem to me simply, the solution or potential solution, and how things will change going forward if applicable.";
+
 describe('buildTicketPrompt', () => {
-  it('builds a prompt with the ticket, criteria, description, and closing request', () => {
+  it('builds a prompt with the ticket, criteria, description, closing request, and footer', () => {
     const result = buildTicketPrompt({
       ticketNumber: 'BRF-123',
       acceptanceCriteria: '- Login works\n- Errors are shown',
@@ -17,7 +20,8 @@ describe('buildTicketPrompt', () => {
         'I am starting a new ticket. This is the Jira ticket: BRF-123',
         'Acceptance criteria:\n- Login works\n- Errors are shown',
         'Description:\nUsers cannot sign in on mobile.',
-        OUTRO
+        OUTRO,
+        FOOTER
       ].join('\n\n')
     );
   });
@@ -81,13 +85,27 @@ describe('buildTicketPrompt', () => {
     expect(result).toContain('Description:\nPadded body');
   });
 
-  it('always closes with the request for attached material', () => {
+  it('always includes the request for attached material and ends with the plan footer', () => {
     const result = buildTicketPrompt({
       ticketNumber: 'BRF-9',
       acceptanceCriteria: 'Criteria',
       description: 'Description'
     });
 
-    expect(result.endsWith(OUTRO)).toBe(true);
+    expect(result).toContain(OUTRO);
+    expect(result.endsWith(FOOTER)).toBe(true);
+  });
+
+  it('asks for a plan before anything is built, then a simple explanation', () => {
+    const result = buildTicketPrompt({
+      ticketNumber: '',
+      acceptanceCriteria: 'Criteria',
+      description: ''
+    });
+
+    expect(result).toContain("Let's do this as a plan first");
+    expect(result).toContain('explain the problem to me simply');
+    expect(result).toContain('the solution or potential solution');
+    expect(result).toContain('how things will change going forward if applicable');
   });
 });

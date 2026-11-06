@@ -697,6 +697,8 @@ describe('App', () => {
       expect(block).toHaveTextContent('Description:');
       expect(block).toHaveTextContent('Sign in fails on mobile');
       expect(block).toHaveTextContent('please ask me for that material');
+      expect(block).toHaveTextContent("Let's do this as a plan first");
+      expect(block).toHaveTextContent('explain the problem to me simply');
     });
 
     it('copies the generated prompt to the clipboard', async () => {
