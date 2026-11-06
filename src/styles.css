@@ -336,6 +336,7 @@ label {
 
 input,
 select,
+textarea,
 button {
   border-radius: 10px;
   border: 1px solid #374151;
@@ -343,6 +344,14 @@ button {
   font-size: 1rem;
   background: #111827;
   color: #f3f4f6;
+}
+
+textarea {
+  width: 100%;
+  min-height: 6rem;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
 }
 
 select {
@@ -355,6 +364,7 @@ select {
 
 input:focus,
 select:focus,
+textarea:focus,
 button:focus-visible {
   outline: 2px solid #4c7ff7;
   outline-offset: 1px;
@@ -431,6 +441,49 @@ code {
   font-size: 0.92rem;
 }
 
+.prompt-section {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(76, 127, 247, 0.18);
+}
+
+.prompt-section h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.prompt-hint {
+  margin: 0.35rem 0 1rem;
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+.prompt-output {
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border-radius: 12px;
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.prompt-output h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.prompt-output pre {
+  max-height: 20rem;
+  overflow: auto;
+  margin: 0.4rem 0 0.6rem;
+  padding: 0.6rem;
+  border-radius: 8px;
+  background: #111827;
+  color: #f9fafb;
+  font-size: 0.88rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .recent-list {
   margin-top: 1rem;
 }
@@ -491,7 +544,8 @@ code {
   }
 
   input,
-  select {
+  select,
+  textarea {
     background: #111827;
     color: #f3f4f6;
     border-color: #374151;
@@ -516,12 +570,14 @@ code {
   }
 
   .output-grid article,
-  .recent-list {
+  .recent-list,
+  .prompt-output {
     background: #111827;
     border-color: #1f2937;
   }
 
-  code {
+  code,
+  .prompt-output pre {
     background: #020617;
   }
 }

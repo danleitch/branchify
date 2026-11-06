@@ -4,7 +4,8 @@ import type {
   BranchSeparators,
   BranchSettings,
   PersistedForm,
-  RecentBranch
+  RecentBranch,
+  TicketPromptForm
 } from '../types';
 import { AI_PROVIDERS } from './ai-handoff';
 import { DEFAULT_NAMING_SETTINGS, sanitizeBranchType } from './branch-utils';
@@ -18,6 +19,7 @@ import {
 } from './particles';
 
 export const FORM_STORAGE_KEY = 'branchify-form';
+export const PROMPT_STORAGE_KEY = 'branchify-prompt';
 export const RECENT_STORAGE_KEY = 'branchify-recent';
 export const SETTINGS_STORAGE_KEY = 'branchify-settings';
 // Kept apart from the naming settings: the backdrop says nothing about branch names.
@@ -40,6 +42,11 @@ export const MAX_SEPARATOR_LENGTH = 3;
 export const EMPTY_FORM: PersistedForm = {
   branchType: 'feat',
   ticketNumber: '',
+  description: ''
+};
+
+export const EMPTY_PROMPT: TicketPromptForm = {
+  acceptanceCriteria: '',
   description: ''
 };
 
@@ -75,6 +82,24 @@ export const parseForm = (raw: string | null): PersistedForm => {
     return { ...EMPTY_FORM, ...(JSON.parse(raw) as Partial<PersistedForm>) };
   } catch {
     return EMPTY_FORM;
+  }
+};
+
+export const parsePrompt = (raw: string | null): TicketPromptForm => {
+  if (!raw) {
+    return EMPTY_PROMPT;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<TicketPromptForm>;
+
+    return {
+      acceptanceCriteria:
+        typeof parsed.acceptanceCriteria === 'string' ? parsed.acceptanceCriteria : '',
+      description: typeof parsed.description === 'string' ? parsed.description : ''
+    };
+  } catch {
+    return EMPTY_PROMPT;
   }
 };
 

@@ -9,6 +9,12 @@ export type BranchSeparators = {
   ticketSeparator: string;
 };
 
+/** Jira fields pasted in to build a ticket prompt; kept separate from the branch form. */
+export type TicketPromptForm = {
+  acceptanceCriteria: string;
+  description: string;
+};
+
 export type RecentBranch = {
   createdAt: string;
   value: string;

@@ -669,6 +669,75 @@ describe('App', () => {
     });
   });
 
+  describe('ticket prompt', () => {
+    const promptBlock = (): HTMLElement =>
+      screen.getByRole('heading', { name: 'Generated prompt' }).closest('article') as HTMLElement;
+
+    it('stays hidden until acceptance criteria or description is filled in', () => {
+      render(<App />);
+
+      expect(screen.getByLabelText('Acceptance criteria')).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Generated prompt' })).not.toBeInTheDocument();
+    });
+
+    it('builds a prompt from the ticket number, criteria, and description', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      await user.type(screen.getByLabelText('Ticket ID'), 'BRF-123');
+      await user.type(screen.getByLabelText('Acceptance criteria'), 'Login must work');
+      await user.type(screen.getByLabelText('Ticket description'), 'Sign in fails on mobile');
+
+      const block = promptBlock();
+      expect(block).toHaveTextContent(
+        'I am starting a new ticket. This is the Jira ticket: BRF-123'
+      );
+      expect(block).toHaveTextContent('Acceptance criteria:');
+      expect(block).toHaveTextContent('Login must work');
+      expect(block).toHaveTextContent('Description:');
+      expect(block).toHaveTextContent('Sign in fails on mobile');
+      expect(block).toHaveTextContent('please ask me for that material');
+    });
+
+    it('copies the generated prompt to the clipboard', async () => {
+      const user = userEvent.setup({ delay: null });
+      const writeText = vi.spyOn(navigator.clipboard, 'writeText');
+      render(<App />);
+
+      await user.type(screen.getByLabelText('Acceptance criteria'), 'Must be accessible');
+      await user.click(within(promptBlock()).getByRole('button', { name: 'Copy' }));
+
+      expect(writeText).toHaveBeenCalledTimes(1);
+      expect(writeText.mock.calls[0][0]).toContain('Acceptance criteria:\nMust be accessible');
+    });
+
+    it('clears the prompt fields on reset', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      await user.type(screen.getByLabelText('Acceptance criteria'), 'Some criteria');
+      expect(screen.getByRole('heading', { name: 'Generated prompt' })).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Reset form' }));
+
+      expect(screen.getByLabelText('Acceptance criteria')).toHaveValue('');
+      expect(screen.getByLabelText('Ticket description')).toHaveValue('');
+      expect(screen.queryByRole('heading', { name: 'Generated prompt' })).not.toBeInTheDocument();
+    });
+
+    it('persists the prompt fields across a remount', async () => {
+      const user = userEvent.setup({ delay: null });
+      const { unmount } = render(<App />);
+
+      await user.type(screen.getByLabelText('Acceptance criteria'), 'Remember me');
+      unmount();
+
+      render(<App />);
+
+      expect(screen.getByLabelText('Acceptance criteria')).toHaveValue('Remember me');
+    });
+  });
+
   it('restores persisted form values from localStorage', () => {
     window.localStorage.setItem(
       'branchify-form',

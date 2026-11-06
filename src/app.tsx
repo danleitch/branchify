@@ -9,6 +9,7 @@ import { RecentBranches } from './components/recent-branches';
 import { ResetButton } from './components/reset-button';
 import { SettingsButton } from './components/settings-button';
 import { SettingsPanel } from './components/settings-panel';
+import { TicketPrompt } from './components/ticket-prompt';
 import { marketFishOf } from './lib/koi-inspect';
 import { useKoiAccount, useMarketDay } from './hooks/use-koi-account';
 import { useRecentBranches } from './hooks/use-recent-branches';
@@ -19,14 +20,17 @@ import {
   generatePullRequestTitle,
   parseBranchName
 } from './lib/branch-utils';
+import { buildTicketPrompt } from './lib/prompt-utils';
 import {
   BACKGROUND_STORAGE_KEY,
   BASE_FISH_STORAGE_KEY,
   EMPTY_FORM,
+  EMPTY_PROMPT,
   FORM_STORAGE_KEY,
   FISH_NAMES_STORAGE_KEY,
   LILY_PLACEMENTS_STORAGE_KEY,
   PARTICLES_STORAGE_KEY,
+  PROMPT_STORAGE_KEY,
   SETTINGS_STORAGE_KEY,
   parseBackground,
   parseBaseFish,
@@ -34,6 +38,7 @@ import {
   parseForm,
   parseLilyPlacements,
   parseParticleSettings,
+  parsePrompt,
   parseSettings,
   readStorage,
   writeStorage,
@@ -47,7 +52,8 @@ import type {
   BranchSeparators,
   BranchSettings,
   PersistedForm,
-  RecentBranch
+  RecentBranch,
+  TicketPromptForm
 } from './types';
 
 // Only visitors who pick the particles background pay to download tsparticles;
@@ -103,6 +109,9 @@ export const App = (): JSX.Element => {
   const [settings, setSettings] = useState<BranchSettings>(() =>
     parseSettings(readStorage(SETTINGS_STORAGE_KEY))
   );
+  const [prompt, setPrompt] = useState<TicketPromptForm>(() =>
+    parsePrompt(readStorage(PROMPT_STORAGE_KEY))
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
   const [background, setBackground] = useState<BackgroundStyle>(() =>
@@ -139,6 +148,10 @@ export const App = (): JSX.Element => {
       ),
     [form, settings]
   );
+  const generatedPrompt = useMemo(
+    () => buildTicketPrompt({ ticketNumber: form.ticketNumber, ...prompt }),
+    [form.ticketNumber, prompt]
+  );
   const gitCommand = branchName ? `git checkout -b "${branchName}"` : '';
   const namingPattern = `<type>${settings.typeSeparator}<ticket-id>${settings.ticketSeparator}<description>`;
 
@@ -169,6 +182,10 @@ export const App = (): JSX.Element => {
   useEffect(() => {
     writeStorage(PARTICLES_STORAGE_KEY, JSON.stringify(particleSettings));
   }, [particleSettings]);
+
+  useEffect(() => {
+    writeStorage(PROMPT_STORAGE_KEY, JSON.stringify(prompt));
+  }, [prompt]);
 
   // Auto-saves the current branch name to the recent list once the form has
   // sat idle for a while, so users get history without an explicit save step.
@@ -220,6 +237,10 @@ export const App = (): JSX.Element => {
     setForm((current) => ({ ...current, ...patch }));
   };
 
+  const handlePromptChange = (patch: Partial<TicketPromptForm>): void => {
+    setPrompt((current) => ({ ...current, ...patch }));
+  };
+
   const handleSettingsChange = (patch: Partial<BranchSettings>): void => {
     setSettings((current) => ({ ...current, ...patch }));
   };
@@ -254,6 +275,7 @@ export const App = (): JSX.Element => {
 
   const handleReset = (): void => {
     setForm(EMPTY_FORM);
+    setPrompt(EMPTY_PROMPT);
   };
 
   const canLoadRecent = (item: RecentBranch): boolean =>
@@ -343,6 +365,12 @@ export const App = (): JSX.Element => {
             gitCommand={gitCommand}
             pullRequestTitle={pullRequestTitle}
             onCopy={() => rewardForBranch(branchName)}
+          />
+
+          <TicketPrompt
+            prompt={prompt}
+            generatedPrompt={generatedPrompt}
+            onChange={handlePromptChange}
           />
 
           <RecentBranches
