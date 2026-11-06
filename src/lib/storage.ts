@@ -47,6 +47,7 @@ export const EMPTY_FORM: PersistedForm = {
 };
 
 export const EMPTY_PROMPT: TicketPromptForm = {
+  title: '',
   acceptanceCriteria: '',
   description: ''
 };
@@ -95,6 +96,7 @@ export const parsePrompt = (raw: string | null): TicketPromptForm => {
     const parsed = JSON.parse(raw) as Partial<TicketPromptForm>;
 
     return {
+      title: typeof parsed.title === 'string' ? parsed.title : '',
       acceptanceCriteria:
         typeof parsed.acceptanceCriteria === 'string' ? parsed.acceptanceCriteria : '',
       description: typeof parsed.description === 'string' ? parsed.description : ''

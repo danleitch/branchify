@@ -11,6 +11,8 @@ export type BranchSeparators = {
 
 /** Jira fields pasted in to build a ticket prompt; kept separate from the branch form. */
 export type TicketPromptForm = {
+  /** The ticket's summary line. Short, but it frames everything under it. */
+  title: string;
   acceptanceCriteria: string;
   description: string;
 };

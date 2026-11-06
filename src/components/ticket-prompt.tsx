@@ -15,12 +15,22 @@ export const TicketPrompt = ({
   <section className="prompt-section">
     <h2>Ticket prompt</h2>
     <p className="prompt-hint">
-      Paste the acceptance criteria and description from the ticket to build a prompt for your
-      AI assistant. The ticket ID above is included automatically, and the surrounding header and
-      footer are editable in Settings.
+      Paste the title, acceptance criteria and description from the ticket to build a prompt for
+      your AI assistant. The ticket ID above is included automatically, and the surrounding header
+      and footer are editable in Settings.
     </p>
 
     <div className="form-grid">
+      <label>
+        Ticket title
+        <input
+          type="text"
+          placeholder="Paste the title 🏷️"
+          value={prompt.title}
+          onChange={(event) => onChange({ title: event.target.value })}
+        />
+      </label>
+
       <label>
         Acceptance criteria
         <textarea

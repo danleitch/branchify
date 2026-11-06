@@ -7,6 +7,7 @@ import {
 
 export type TicketPromptInput = {
   ticketNumber: string;
+  title: string;
   acceptanceCriteria: string;
   description: string;
 };
@@ -24,6 +25,9 @@ export const DEFAULT_PROMPT_TEMPLATES: PromptTemplates = {
 
 /** Trims the edges of a pasted block while preserving the author's internal line breaks. */
 const trimBlock = (value: string): string => value.replace(/^\s+|\s+$/g, '');
+
+/** The title is a summary line, so a pasted newline is collapsed rather than kept. */
+const toSingleLine = (value: string): string => value.replace(/\s+/g, ' ').trim();
 
 /**
  * Fills in the ticket ID. Lines that mention the ticket are dropped entirely
@@ -46,13 +50,14 @@ const renderTemplate = (template: string, ticket: string): string =>
  * fields are empty.
  */
 export const buildTicketPrompt = (
-  { ticketNumber, acceptanceCriteria, description }: TicketPromptInput,
+  { ticketNumber, title, acceptanceCriteria, description }: TicketPromptInput,
   { promptHeader, promptFooter }: PromptTemplates = DEFAULT_PROMPT_TEMPLATES
 ): string => {
+  const summary = toSingleLine(title);
   const criteria = trimBlock(acceptanceCriteria);
   const body = trimBlock(description);
 
-  if (!criteria && !body) {
+  if (!summary && !criteria && !body) {
     return '';
   }
 
@@ -63,6 +68,10 @@ export const buildTicketPrompt = (
 
   if (header) {
     sections.push(header);
+  }
+
+  if (summary) {
+    sections.push(`Title: ${summary}`);
   }
 
   if (criteria) {

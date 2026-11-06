@@ -7,10 +7,14 @@ const OUTRO =
 
 const FOOTER_PLAN = "Let's do this as a plan first";
 
+/** Every field empty, so each test only states what it is actually about. */
+const EMPTY = { ticketNumber: '', title: '', acceptanceCriteria: '', description: '' };
+
 describe('buildTicketPrompt', () => {
-  it('builds a prompt with the ticket, criteria, description, closing request, and footer', () => {
+  it('builds a prompt with the ticket, title, criteria, description, and footer', () => {
     const result = buildTicketPrompt({
       ticketNumber: 'BRF-123',
+      title: 'Mobile sign-in fails silently',
       acceptanceCriteria: '- Login works\n- Errors are shown',
       description: 'Users cannot sign in on mobile.'
     });
@@ -18,6 +22,7 @@ describe('buildTicketPrompt', () => {
     expect(result).toBe(
       [
         'I am starting a new ticket.\nThis is the Jira ticket: BRF-123',
+        'Title: Mobile sign-in fails silently',
         'Acceptance criteria:\n- Login works\n- Errors are shown',
         'Description:\nUsers cannot sign in on mobile.',
         DEFAULT_PROMPT_FOOTER
@@ -25,21 +30,52 @@ describe('buildTicketPrompt', () => {
     );
   });
 
-  it('returns an empty string until criteria or description has content', () => {
+  it('returns an empty string until at least one field has content', () => {
+    expect(buildTicketPrompt({ ...EMPTY, ticketNumber: 'BRF-1' })).toBe('');
     expect(
-      buildTicketPrompt({ ticketNumber: 'BRF-1', acceptanceCriteria: '', description: '' })
-    ).toBe('');
-    expect(
-      buildTicketPrompt({ ticketNumber: 'BRF-1', acceptanceCriteria: '   \n ', description: '\n' })
+      buildTicketPrompt({
+        ...EMPTY,
+        ticketNumber: 'BRF-1',
+        title: '  ',
+        acceptanceCriteria: '   \n ',
+        description: '\n'
+      })
     ).toBe('');
   });
 
-  it('drops the ticket line when no ticket number is given', () => {
+  it('builds a prompt from the title alone', () => {
+    const result = buildTicketPrompt({ ...EMPTY, title: 'Just the summary' });
+
+    expect(result).toContain('Title: Just the summary');
+    expect(result).not.toContain('Acceptance criteria:');
+    expect(result).not.toContain('Description:');
+    expect(result).toContain(FOOTER_PLAN);
+  });
+
+  it('collapses the title onto one line, since it is a summary', () => {
     const result = buildTicketPrompt({
-      ticketNumber: '',
-      acceptanceCriteria: 'Must be accessible.',
-      description: ''
+      ...EMPTY,
+      title: '  Fix the login\n  on mobile  ',
+      acceptanceCriteria: 'Criteria'
     });
+
+    expect(result).toContain('Title: Fix the login on mobile');
+  });
+
+  it('places the title between the header and the criteria', () => {
+    const result = buildTicketPrompt({
+      ...EMPTY,
+      ticketNumber: 'BRF-2',
+      title: 'Summary here',
+      acceptanceCriteria: 'Criteria'
+    });
+
+    expect(result.indexOf('This is the Jira ticket')).toBeLessThan(result.indexOf('Title:'));
+    expect(result.indexOf('Title:')).toBeLessThan(result.indexOf('Acceptance criteria:'));
+  });
+
+  it('drops the ticket line when no ticket number is given', () => {
+    const result = buildTicketPrompt({ ...EMPTY, acceptanceCriteria: 'Must be accessible.' });
 
     expect(result.startsWith('I am starting a new ticket.\n\n')).toBe(true);
     expect(result).not.toContain('This is the Jira ticket');
@@ -47,9 +83,9 @@ describe('buildTicketPrompt', () => {
 
   it('normalises the ticket number the same way branch names do', () => {
     const result = buildTicketPrompt({
+      ...EMPTY,
       ticketNumber: '  brf-42 ',
-      acceptanceCriteria: 'Something',
-      description: ''
+      acceptanceCriteria: 'Something'
     });
 
     expect(result).toContain('This is the Jira ticket: BRF-42');
@@ -57,16 +93,17 @@ describe('buildTicketPrompt', () => {
 
   it('omits a section that was left empty', () => {
     const criteriaOnly = buildTicketPrompt({
+      ...EMPTY,
       ticketNumber: 'BRF-7',
-      acceptanceCriteria: 'Only criteria',
-      description: ''
+      acceptanceCriteria: 'Only criteria'
     });
     expect(criteriaOnly).toContain('Acceptance criteria:\nOnly criteria');
     expect(criteriaOnly).not.toContain('Description:');
+    expect(criteriaOnly).not.toContain('Title:');
 
     const descriptionOnly = buildTicketPrompt({
+      ...EMPTY,
       ticketNumber: 'BRF-7',
-      acceptanceCriteria: '',
       description: 'Only description'
     });
     expect(descriptionOnly).toContain('Description:\nOnly description');
@@ -75,6 +112,7 @@ describe('buildTicketPrompt', () => {
 
   it('keeps internal line breaks but trims the edges of each block', () => {
     const result = buildTicketPrompt({
+      ...EMPTY,
       ticketNumber: 'BRF-8',
       acceptanceCriteria: '\n\n  Given a user\nWhen they log in  \n\n',
       description: '  Padded body  '
@@ -86,6 +124,7 @@ describe('buildTicketPrompt', () => {
 
   it('defaults to asking for attached material and ends with the plan footer', () => {
     const result = buildTicketPrompt({
+      ...EMPTY,
       ticketNumber: 'BRF-9',
       acceptanceCriteria: 'Criteria',
       description: 'Description'
@@ -96,11 +135,7 @@ describe('buildTicketPrompt', () => {
   });
 
   it('asks for a plan before anything is built, then a simple explanation', () => {
-    const result = buildTicketPrompt({
-      ticketNumber: '',
-      acceptanceCriteria: 'Criteria',
-      description: ''
-    });
+    const result = buildTicketPrompt({ ...EMPTY, acceptanceCriteria: 'Criteria' });
 
     expect(result).toContain(FOOTER_PLAN);
     expect(result).toContain('explain the problem to me simply');
@@ -111,7 +146,7 @@ describe('buildTicketPrompt', () => {
   describe('custom header and footer', () => {
     it('uses the supplied templates instead of the defaults', () => {
       const result = buildTicketPrompt(
-        { ticketNumber: 'ACME-5', acceptanceCriteria: 'Criteria', description: '' },
+        { ...EMPTY, ticketNumber: 'ACME-5', acceptanceCriteria: 'Criteria' },
         { promptHeader: 'New work on {ticket}.', promptFooter: 'Ship it carefully.' }
       );
 
@@ -123,7 +158,7 @@ describe('buildTicketPrompt', () => {
 
     it('substitutes the ticket anywhere in either template, as often as it appears', () => {
       const result = buildTicketPrompt(
-        { ticketNumber: 'ACME-5', acceptanceCriteria: 'Criteria', description: '' },
+        { ...EMPTY, ticketNumber: 'ACME-5', acceptanceCriteria: 'Criteria' },
         { promptHeader: '{ticket} start, {ticket} again', promptFooter: 'Done with {ticket}.' }
       );
 
@@ -133,7 +168,7 @@ describe('buildTicketPrompt', () => {
 
     it('drops only the lines that mention the ticket when there is no ticket ID', () => {
       const result = buildTicketPrompt(
-        { ticketNumber: '', acceptanceCriteria: 'Criteria', description: '' },
+        { ...EMPTY, acceptanceCriteria: 'Criteria' },
         { promptHeader: 'Keep this line\nTicket: {ticket}\nKeep this one too', promptFooter: '' }
       );
 
@@ -143,13 +178,13 @@ describe('buildTicketPrompt', () => {
 
     it('omits an empty header or footer entirely', () => {
       const noHeader = buildTicketPrompt(
-        { ticketNumber: 'BRF-1', acceptanceCriteria: 'Criteria', description: '' },
+        { ...EMPTY, ticketNumber: 'BRF-1', acceptanceCriteria: 'Criteria' },
         { promptHeader: '', promptFooter: 'Footer only' }
       );
       expect(noHeader).toBe('Acceptance criteria:\nCriteria\n\nFooter only');
 
       const noFooter = buildTicketPrompt(
-        { ticketNumber: 'BRF-1', acceptanceCriteria: 'Criteria', description: '' },
+        { ...EMPTY, ticketNumber: 'BRF-1', acceptanceCriteria: 'Criteria' },
         { promptHeader: 'Header only', promptFooter: '   \n  ' }
       );
       expect(noFooter).toBe('Header only\n\nAcceptance criteria:\nCriteria');

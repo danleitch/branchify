@@ -4,11 +4,13 @@ import { MAX_PROMPT_TEMPLATE_LENGTH } from './prompt-templates';
 import {
   DEFAULT_SETTINGS,
   EMPTY_FORM,
+  EMPTY_PROMPT,
   MAX_FISH_NAMES,
   MAX_RECENT_BRANCHES,
   parseBaseFish,
   parseFishNames,
   parseForm,
+  parsePrompt,
   parseRecentBranches,
   parseSettings
 } from './storage';
@@ -88,6 +90,34 @@ describe('parseRecentBranches snapshots', () => {
       entry,
       { ...entry, createdAt: '2026-01-02T00:00:00.000Z' }
     ]);
+  });
+});
+
+describe('parsePrompt', () => {
+  it('returns empty fields when nothing is stored', () => {
+    expect(parsePrompt(null)).toEqual(EMPTY_PROMPT);
+  });
+
+  it('restores the title, criteria and description', () => {
+    const stored = {
+      title: 'Mobile sign-in fails',
+      acceptanceCriteria: '- one\n- two',
+      description: 'Body text'
+    };
+
+    expect(parsePrompt(JSON.stringify(stored))).toEqual(stored);
+  });
+
+  it('defaults a missing title, as saved before the field existed', () => {
+    expect(parsePrompt(JSON.stringify({ acceptanceCriteria: 'Criteria' }))).toEqual({
+      ...EMPTY_PROMPT,
+      acceptanceCriteria: 'Criteria'
+    });
+  });
+
+  it('ignores non-string values and unparseable JSON', () => {
+    expect(parsePrompt(JSON.stringify({ title: 42, description: null }))).toEqual(EMPTY_PROMPT);
+    expect(parsePrompt('not json')).toEqual(EMPTY_PROMPT);
   });
 });
 

@@ -673,22 +673,34 @@ describe('App', () => {
     const promptBlock = (): HTMLElement =>
       screen.getByRole('heading', { name: 'Generated prompt' }).closest('article') as HTMLElement;
 
-    it('stays hidden until acceptance criteria or description is filled in', () => {
+    it('stays hidden until one of the ticket fields is filled in', () => {
       render(<App />);
 
+      expect(screen.getByLabelText('Ticket title')).toBeInTheDocument();
       expect(screen.getByLabelText('Acceptance criteria')).toBeInTheDocument();
       expect(screen.queryByRole('heading', { name: 'Generated prompt' })).not.toBeInTheDocument();
     });
 
-    it('builds a prompt from the ticket number, criteria, and description', async () => {
+    it('appears once only the title has been filled in', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      await user.type(screen.getByLabelText('Ticket title'), 'Summary only');
+
+      expect(promptBlock()).toHaveTextContent('Title: Summary only');
+    });
+
+    it('builds a prompt from the ticket number, title, criteria, and description', async () => {
       const user = userEvent.setup({ delay: null });
       render(<App />);
 
       await user.type(screen.getByLabelText('Ticket ID'), 'BRF-123');
+      await user.type(screen.getByLabelText('Ticket title'), 'Mobile sign-in fails');
       await user.type(screen.getByLabelText('Acceptance criteria'), 'Login must work');
       await user.type(screen.getByLabelText('Ticket description'), 'Sign in fails on mobile');
 
       const block = promptBlock();
+      expect(block).toHaveTextContent('Title: Mobile sign-in fails');
       expect(block).toHaveTextContent(
         'I am starting a new ticket. This is the Jira ticket: BRF-123'
       );
@@ -717,11 +729,13 @@ describe('App', () => {
       const user = userEvent.setup({ delay: null });
       render(<App />);
 
+      await user.type(screen.getByLabelText('Ticket title'), 'Some title');
       await user.type(screen.getByLabelText('Acceptance criteria'), 'Some criteria');
       expect(screen.getByRole('heading', { name: 'Generated prompt' })).toBeInTheDocument();
 
       await user.click(screen.getByRole('button', { name: 'Reset form' }));
 
+      expect(screen.getByLabelText('Ticket title')).toHaveValue('');
       expect(screen.getByLabelText('Acceptance criteria')).toHaveValue('');
       expect(screen.getByLabelText('Ticket description')).toHaveValue('');
       expect(screen.queryByRole('heading', { name: 'Generated prompt' })).not.toBeInTheDocument();

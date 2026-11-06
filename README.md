@@ -17,8 +17,8 @@ and you're free to spin up your own the same way (see
 - Supports optional ticket numbers while keeping the final branch visible
 - Generates PR titles like `feat/BRF-123: Description.`
 - Copies the generated branch name and full `git checkout -b` command
-- Builds a copy-paste AI prompt from a Jira ticket's acceptance criteria and description,
-  with an editable header and footer
+- Builds a copy-paste AI prompt from a ticket's title, acceptance criteria and
+  description, with an editable header and footer
 - Persists your latest values and recent branches in `localStorage`
 - Fully static frontend output (`dist/`) with no backend runtime
 - Mobile-friendly, minimal UI
@@ -81,12 +81,14 @@ All three outputs are one-click copyable for quick pasting into your terminal or
 ## Ticket Prompt
 
 Below the branch outputs there's a **Ticket prompt** section for starting work with
-an AI assistant. Paste the **acceptance criteria** and the **description** straight
-out of the Jira ticket and Branchify assembles a single copy-paste block:
+an AI assistant. Paste the **title**, **acceptance criteria** and **description**
+straight out of the ticket and Branchify assembles a single copy-paste block:
 
 ```text
 I am starting a new ticket.
 This is the Jira ticket: BRF-123
+
+Title: Sign-in fails silently on mobile Safari
 
 Acceptance criteria:
 - Login works on mobile Safari
@@ -105,9 +107,12 @@ how things will change going forward if applicable.
 
 - The ticket ID is taken from the **Ticket ID** field above, so you only type it once
 - It is uppercased the same way it is in branch names (`brf-42` becomes `BRF-42`)
-- Either block can be left empty and its heading is omitted
-- Your line breaks and bullet lists are preserved exactly as pasted
-- The block only appears once there's something to show, and **Reset** clears it
+- The **title** sits directly under the header, so it frames everything below it.
+  It's a summary line, so pasted line breaks are collapsed to single spaces
+- Any field can be left empty and its heading is omitted
+- Your line breaks and bullet lists are preserved exactly as pasted in the two
+  long fields
+- The block appears as soon as any one field has content, and **Reset** clears it
 - The closing request means the assistant asks you for any attachments or linked
   material it can't reach itself
 - The footer keeps the assistant in planning mode: a plan before any building,
@@ -251,7 +256,7 @@ src/
   components/
     branch-form.tsx           # Input form (type, ticket, description)
     branch-outputs.tsx        # Generated branch, git command, PR title
-    ticket-prompt.tsx         # Jira criteria/description -> copy-paste AI prompt
+    ticket-prompt.tsx         # Ticket title/criteria/description -> copy-paste AI prompt
     recent-branches.tsx       # Recently generated branches list
     copy-button.tsx           # Copy-to-clipboard button with feedback
     particles-background.tsx  # Animated background
