@@ -15,7 +15,7 @@ export const TicketPrompt = ({
   <section className="prompt-section">
     <h2>Ticket prompt</h2>
     <p className="prompt-hint">
-      Paste the acceptance criteria and description from the Jira ticket to build a prompt for your
+      Paste the acceptance criteria and description from the ticket to build a prompt for your
       AI assistant. The ticket ID above is included automatically, and the surrounding header and
       footer are editable in Settings.
     </p>
@@ -25,7 +25,7 @@ export const TicketPrompt = ({
         Acceptance criteria
         <textarea
           rows={5}
-          placeholder="Paste the acceptance criteria from Jira 📋"
+          placeholder="Paste the acceptance criteria 📋"
           value={prompt.acceptanceCriteria}
           onChange={(event) => onChange({ acceptanceCriteria: event.target.value })}
         />
@@ -35,7 +35,7 @@ export const TicketPrompt = ({
         Ticket description
         <textarea
           rows={5}
-          placeholder="Paste the description from Jira 📝"
+          placeholder="Paste the description 📝"
           value={prompt.description}
           onChange={(event) => onChange({ description: event.target.value })}
         />
