@@ -10,6 +10,8 @@ export type TicketPromptInput = {
   title: string;
   acceptanceCriteria: string;
   description: string;
+  /** Bodies of the ticked instruction blocks, already in library order. */
+  blocks?: string[];
 };
 
 /** The editable intro and closing text, as held in settings. */
@@ -50,7 +52,7 @@ const renderTemplate = (template: string, ticket: string): string =>
  * fields are empty.
  */
 export const buildTicketPrompt = (
-  { ticketNumber, title, acceptanceCriteria, description }: TicketPromptInput,
+  { ticketNumber, title, acceptanceCriteria, description, blocks = [] }: TicketPromptInput,
   { promptHeader, promptFooter }: PromptTemplates = DEFAULT_PROMPT_TEMPLATES
 ): string => {
   const summary = toSingleLine(title);
@@ -80,6 +82,16 @@ export const buildTicketPrompt = (
 
   if (body) {
     sections.push(`Description:\n${body}`);
+  }
+
+  // Blocks sit after the ticket's own content but before the footer, so the
+  // footer's "plan first" instruction stays the last thing the model reads.
+  for (const block of blocks) {
+    const text = trimBlock(block);
+
+    if (text) {
+      sections.push(text);
+    }
   }
 
   if (footer) {

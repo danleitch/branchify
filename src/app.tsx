@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import { BlocksPanel } from './components/blocks-panel';
 import { BranchForm } from './components/branch-form';
 import { BranchOutputs } from './components/branch-outputs';
 import { GithubButton } from './components/github-button';
@@ -20,10 +21,21 @@ import {
   generatePullRequestTitle,
   parseBranchName
 } from './lib/branch-utils';
+import {
+  MAX_BLOCKS,
+  createBlock,
+  parseBlocks,
+  pruneSelectedBlockIds,
+  sanitizeBlockBody,
+  sanitizeBlockHeading,
+  selectedBlockBodies,
+  serializeBlocks
+} from './lib/prompt-blocks';
 import { DEFAULT_PROMPT_TEMPLATES, buildTicketPrompt } from './lib/prompt-utils';
 import {
   BACKGROUND_STORAGE_KEY,
   BASE_FISH_STORAGE_KEY,
+  BLOCKS_STORAGE_KEY,
   EMPTY_FORM,
   EMPTY_PROMPT,
   FORM_STORAGE_KEY,
@@ -52,6 +64,7 @@ import type {
   BranchSeparators,
   BranchSettings,
   PersistedForm,
+  PromptBlock,
   RecentBranch,
   TicketPromptForm
 } from './types';
@@ -112,6 +125,10 @@ export const App = (): JSX.Element => {
   const [prompt, setPrompt] = useState<TicketPromptForm>(() =>
     parsePrompt(readStorage(PROMPT_STORAGE_KEY))
   );
+  const [blocks, setBlocks] = useState<PromptBlock[]>(() =>
+    parseBlocks(readStorage(BLOCKS_STORAGE_KEY))
+  );
+  const [blocksOpen, setBlocksOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
   const [background, setBackground] = useState<BackgroundStyle>(() =>
@@ -149,8 +166,16 @@ export const App = (): JSX.Element => {
     [form, settings]
   );
   const generatedPrompt = useMemo(
-    () => buildTicketPrompt({ ticketNumber: form.ticketNumber, ...prompt }, settings),
-    [form.ticketNumber, prompt, settings]
+    () =>
+      buildTicketPrompt(
+        {
+          ticketNumber: form.ticketNumber,
+          ...prompt,
+          blocks: selectedBlockBodies(blocks, prompt.selectedBlockIds)
+        },
+        settings
+      ),
+    [form.ticketNumber, prompt, settings, blocks]
   );
   const promptTemplatesEdited =
     settings.promptHeader !== DEFAULT_PROMPT_TEMPLATES.promptHeader ||
@@ -189,6 +214,10 @@ export const App = (): JSX.Element => {
   useEffect(() => {
     writeStorage(PROMPT_STORAGE_KEY, JSON.stringify(prompt));
   }, [prompt]);
+
+  useEffect(() => {
+    writeStorage(BLOCKS_STORAGE_KEY, serializeBlocks(blocks));
+  }, [blocks]);
 
   // Auto-saves the current branch name to the recent list once the form has
   // sat idle for a while, so users get history without an explicit save step.
@@ -242,6 +271,62 @@ export const App = (): JSX.Element => {
 
   const handlePromptChange = (patch: Partial<TicketPromptForm>): void => {
     setPrompt((current) => ({ ...current, ...patch }));
+  };
+
+  const handleToggleBlock = (id: string): void => {
+    setPrompt((current) => ({
+      ...current,
+      selectedBlockIds: current.selectedBlockIds.includes(id)
+        ? current.selectedBlockIds.filter((selected) => selected !== id)
+        : [...current.selectedBlockIds, id]
+    }));
+  };
+
+  const handleAddBlock = (heading: string, body: string): boolean => {
+    const block = createBlock(heading, body);
+
+    if (!block || blocks.length >= MAX_BLOCKS) {
+      return false;
+    }
+
+    setBlocks((current) => [...current, block]);
+    return true;
+  };
+
+  const handleUpdateBlock = (id: string, heading: string, body: string): boolean => {
+    const cleanHeading = sanitizeBlockHeading(heading);
+    const cleanBody = sanitizeBlockBody(body);
+
+    if (!cleanHeading || !cleanBody) {
+      return false;
+    }
+
+    setBlocks((current) =>
+      current.map((block) =>
+        block.id === id ? { ...block, heading: cleanHeading, body: cleanBody } : block
+      )
+    );
+    return true;
+  };
+
+  // Deleting a block also un-ticks it, so a stale id can never linger in the draft.
+  const handleRemoveBlock = (id: string): void => {
+    setBlocks((current) => {
+      const next = current.filter((block) => block.id !== id);
+      setPrompt((draft) => ({
+        ...draft,
+        selectedBlockIds: pruneSelectedBlockIds(next, draft.selectedBlockIds)
+      }));
+      return next;
+    });
+  };
+
+  const handleReplaceBlocks = (imported: PromptBlock[]): void => {
+    setBlocks(imported);
+    setPrompt((draft) => ({
+      ...draft,
+      selectedBlockIds: pruneSelectedBlockIds(imported, draft.selectedBlockIds)
+    }));
   };
 
   const handleSettingsChange = (patch: Partial<BranchSettings>): void => {
@@ -377,7 +462,10 @@ export const App = (): JSX.Element => {
           <TicketPrompt
             prompt={prompt}
             generatedPrompt={generatedPrompt}
+            blocks={blocks}
             onChange={handlePromptChange}
+            onToggleBlock={handleToggleBlock}
+            onManageBlocks={() => setBlocksOpen(true)}
           />
 
           <RecentBranches
@@ -387,6 +475,17 @@ export const App = (): JSX.Element => {
             onRemove={removeRecentBranch}
           />
         </section>
+
+        {blocksOpen && (
+          <BlocksPanel
+            blocks={blocks}
+            onAddBlock={handleAddBlock}
+            onUpdateBlock={handleUpdateBlock}
+            onRemoveBlock={handleRemoveBlock}
+            onReplaceBlocks={handleReplaceBlocks}
+            onClose={() => setBlocksOpen(false)}
+          />
+        )}
 
         {settingsOpen && (
           <SettingsPanel

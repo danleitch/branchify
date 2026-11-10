@@ -19,6 +19,7 @@ and you're free to spin up your own the same way (see
 - Copies the generated branch name and full `git checkout -b` command
 - Builds a copy-paste AI prompt from a ticket's title, acceptance criteria and
   description, with an editable header and footer
+- Keeps a library of reusable instruction blocks you can tick on per ticket
 - Persists your latest values and recent branches in `localStorage`
 - Fully static frontend output (`dist/`) with no backend runtime
 - Mobile-friendly, minimal UI
@@ -122,6 +123,36 @@ how things will change going forward if applicable.
 Contents persist in `localStorage` under `branchify-prompt`. Note this is your
 current draft only, not a history: it survives a refresh, but it isn't kept per
 branch, so loading a recent branch won't bring its prompt back.
+
+### Blocks
+
+Blocks are reusable instruction bodies you keep in a small library and tick on
+per ticket. They suit per-work-stream guidance: one block describing how to
+navigate work stream A, another for a different style of work, and you tick
+whichever fits today.
+
+Each block has a **heading** and a **body**. The heading is only a label for the
+pick list — the body is what goes into the prompt. Write the body exactly as you
+want the assistant to read it.
+
+**Manage blocks** below the pick list opens the library, where you can add, edit
+and remove them, and export or import the whole list as JSON.
+
+- Ticked blocks land **after** the ticket's title, criteria and description, and
+  **before** the footer — so the footer's "plan first" instruction stays the last
+  thing the assistant reads
+- Several ticked blocks appear in **library order**, not the order you ticked
+  them, so the same selection always produces the same prompt
+- Each block becomes its own paragraph
+- Blocks alone don't produce a prompt: it still needs a title, criteria or a
+  description to appear
+- Deleting a block un-ticks it; **Reset** clears the ticks but keeps the library
+- Up to 30 blocks, 60 characters per heading, 4,000 per body
+
+The library is stored in `localStorage` under `branchify-blocks`, separate from
+the per-ticket draft. That's deliberate — the draft is disposable, the library is
+work you've built up. **Export it** if you care about it; clearing site data
+takes it with everything else. Import replaces the whole list.
 
 ### Editing the header and footer
 
@@ -257,6 +288,8 @@ src/
     branch-form.tsx           # Input form (type, ticket, description)
     branch-outputs.tsx        # Generated branch, git command, PR title
     ticket-prompt.tsx         # Ticket title/criteria/description -> copy-paste AI prompt
+    blocks-panel.tsx          # The block library: add, edit, remove
+    blocks-transfer.tsx       # Export/import the block library as JSON
     recent-branches.tsx       # Recently generated branches list
     copy-button.tsx           # Copy-to-clipboard button with feedback
     particles-background.tsx  # Animated background
@@ -271,6 +304,7 @@ src/
     branch-utils.ts           # Pure branch/PR-title formatting logic
     prompt-utils.ts           # Pure ticket-prompt assembly
     prompt-templates.ts       # Default prompt header/footer and the {ticket} token
+    prompt-blocks.ts          # Block library: sanitising, parsing, selection
     storage.ts                # Safe localStorage helpers + parsing
     koi-varieties.ts          # The nishikigoi catalogue, as pattern recipes
     koi-genome.ts             # Variety + traits + seed → a koi's exact look

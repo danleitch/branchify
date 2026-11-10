@@ -754,6 +754,153 @@ describe('App', () => {
     });
   });
 
+  describe('instruction blocks', () => {
+    const promptBlock = (): HTMLElement =>
+      screen.getByRole('heading', { name: 'Generated prompt' }).closest('article') as HTMLElement;
+
+    const openBlocks = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
+      await user.click(screen.getByRole('button', { name: 'Manage blocks' }));
+      return screen.getByRole('dialog', { name: 'Blocks' });
+    };
+
+    const addBlock = async (
+      user: ReturnType<typeof userEvent.setup>,
+      heading: string,
+      body: string
+    ): Promise<void> => {
+      const dialog = await openBlocks(user);
+      await user.type(within(dialog).getByLabelText('Block heading'), heading);
+      await user.type(within(dialog).getByLabelText('Block text'), body);
+      await user.click(within(dialog).getByRole('button', { name: 'Add block' }));
+      await user.click(within(dialog).getByRole('button', { name: 'Close blocks' }));
+    };
+
+    it('starts with no blocks and explains what they are', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      expect(screen.getByText(/No blocks yet/)).toBeInTheDocument();
+
+      const dialog = await openBlocks(user);
+      expect(within(dialog).getByLabelText('Block heading')).toHaveValue('');
+    });
+
+    it('adds a block that then appears as a checkbox', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      await addBlock(user, 'Creating a PR', 'Raise it against develop.');
+
+      expect(screen.getByRole('checkbox', { name: 'Creating a PR' })).not.toBeChecked();
+    });
+
+    it('adds the block text to the prompt once ticked, above the footer', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      await addBlock(user, 'Creating a PR', 'Raise it against develop.');
+      await user.type(screen.getByLabelText('Acceptance criteria'), 'It works');
+      expect(promptBlock()).not.toHaveTextContent('Raise it against develop.');
+
+      await user.click(screen.getByRole('checkbox', { name: 'Creating a PR' }));
+
+      const text = promptBlock().textContent ?? '';
+      expect(text).toContain('Raise it against develop.');
+      expect(text.indexOf('Raise it against develop.')).toBeLessThan(
+        text.indexOf("Let's do this as a plan first")
+      );
+    });
+
+    it('un-ticks a block and drops its text again', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      await addBlock(user, 'Work stream A', 'Do it the A way.');
+      await user.type(screen.getByLabelText('Acceptance criteria'), 'It works');
+      await user.click(screen.getByRole('checkbox', { name: 'Work stream A' }));
+      expect(promptBlock()).toHaveTextContent('Do it the A way.');
+
+      await user.click(screen.getByRole('checkbox', { name: 'Work stream A' }));
+
+      expect(promptBlock()).not.toHaveTextContent('Do it the A way.');
+    });
+
+    it('removing a block also un-ticks it', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      await addBlock(user, 'Work stream A', 'Do it the A way.');
+      await user.type(screen.getByLabelText('Acceptance criteria'), 'It works');
+      await user.click(screen.getByRole('checkbox', { name: 'Work stream A' }));
+
+      const dialog = await openBlocks(user);
+      await user.click(within(dialog).getByRole('button', { name: 'Remove block Work stream A' }));
+      await user.click(within(dialog).getByRole('button', { name: 'Close blocks' }));
+
+      expect(screen.queryByRole('checkbox', { name: 'Work stream A' })).not.toBeInTheDocument();
+      expect(promptBlock()).not.toHaveTextContent('Do it the A way.');
+    });
+
+    it('edits a block and the prompt follows', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      await addBlock(user, 'Work stream A', 'Old text.');
+      await user.type(screen.getByLabelText('Acceptance criteria'), 'It works');
+      await user.click(screen.getByRole('checkbox', { name: 'Work stream A' }));
+
+      const dialog = await openBlocks(user);
+      await user.click(within(dialog).getByRole('button', { name: 'Edit' }));
+      const body = within(dialog).getByLabelText('Block text');
+      await user.clear(body);
+      await user.type(body, 'New text.');
+      await user.click(within(dialog).getByRole('button', { name: 'Save block' }));
+      await user.click(within(dialog).getByRole('button', { name: 'Close blocks' }));
+
+      expect(promptBlock()).toHaveTextContent('New text.');
+      expect(promptBlock()).not.toHaveTextContent('Old text.');
+    });
+
+    it('rejects a block with no heading or no text', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      const dialog = await openBlocks(user);
+      await user.type(within(dialog).getByLabelText('Block heading'), 'Heading only');
+      await user.click(within(dialog).getByRole('button', { name: 'Add block' }));
+
+      expect(within(dialog).getByRole('alert')).toHaveTextContent('needs both a heading');
+    });
+
+    it('keeps the library and the ticked blocks across a remount', async () => {
+      const user = userEvent.setup({ delay: null });
+      const { unmount } = render(<App />);
+
+      await addBlock(user, 'Work stream A', 'Do it the A way.');
+      await user.type(screen.getByLabelText('Acceptance criteria'), 'It works');
+      await user.click(screen.getByRole('checkbox', { name: 'Work stream A' }));
+      unmount();
+
+      render(<App />);
+
+      expect(screen.getByRole('checkbox', { name: 'Work stream A' })).toBeChecked();
+      expect(promptBlock()).toHaveTextContent('Do it the A way.');
+    });
+
+    it('clears the ticked blocks on reset but keeps the library', async () => {
+      const user = userEvent.setup({ delay: null });
+      render(<App />);
+
+      await addBlock(user, 'Work stream A', 'Do it the A way.');
+      await user.type(screen.getByLabelText('Acceptance criteria'), 'It works');
+      await user.click(screen.getByRole('checkbox', { name: 'Work stream A' }));
+
+      await user.click(screen.getByRole('button', { name: 'Reset form' }));
+
+      expect(screen.getByRole('checkbox', { name: 'Work stream A' })).not.toBeChecked();
+    });
+  });
+
   describe('customising the prompt header and footer', () => {
     const openSettings = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
       await user.click(screen.getByRole('button', { name: 'Settings' }));

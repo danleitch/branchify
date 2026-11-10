@@ -143,6 +143,54 @@ describe('buildTicketPrompt', () => {
     expect(result).toContain('how things will change going forward if applicable');
   });
 
+  describe('instruction blocks', () => {
+    it('places blocks after the ticket content but before the footer', () => {
+      const result = buildTicketPrompt({
+        ...EMPTY,
+        ticketNumber: 'BRF-1',
+        acceptanceCriteria: 'Criteria',
+        description: 'Body',
+        blocks: ['Raise a PR against develop.']
+      });
+
+      expect(result.indexOf('Description:')).toBeLessThan(result.indexOf('Raise a PR'));
+      expect(result.indexOf('Raise a PR')).toBeLessThan(result.indexOf(FOOTER_PLAN));
+      expect(result.endsWith(DEFAULT_PROMPT_FOOTER)).toBe(true);
+    });
+
+    it('keeps several blocks in the order given, each its own paragraph', () => {
+      const result = buildTicketPrompt({
+        ...EMPTY,
+        acceptanceCriteria: 'Criteria',
+        blocks: ['First block', 'Second block']
+      });
+
+      expect(result).toContain('First block\n\nSecond block');
+    });
+
+    it('trims blocks and skips empty ones', () => {
+      const result = buildTicketPrompt({
+        ...EMPTY,
+        acceptanceCriteria: 'Criteria',
+        blocks: ['  padded  ', '   ', '\n']
+      });
+
+      expect(result).toContain('\n\npadded\n\n');
+      expect(result).not.toContain('\n\n\n');
+    });
+
+    it('does not produce a prompt from blocks alone', () => {
+      expect(buildTicketPrompt({ ...EMPTY, blocks: ['Just a block'] })).toBe('');
+    });
+
+    it('behaves as before when no blocks are passed', () => {
+      const withEmpty = buildTicketPrompt({ ...EMPTY, acceptanceCriteria: 'Criteria', blocks: [] });
+      const without = buildTicketPrompt({ ...EMPTY, acceptanceCriteria: 'Criteria' });
+
+      expect(withEmpty).toBe(without);
+    });
+  });
+
   describe('custom header and footer', () => {
     it('uses the supplied templates instead of the defaults', () => {
       const result = buildTicketPrompt(

@@ -21,6 +21,9 @@ import {
 
 export const FORM_STORAGE_KEY = 'branchify-form';
 export const PROMPT_STORAGE_KEY = 'branchify-prompt';
+// The reusable instruction-block library. Separate from the per-ticket prompt
+// draft: the draft is disposable, the library is work the user built up.
+export const BLOCKS_STORAGE_KEY = 'branchify-blocks';
 export const RECENT_STORAGE_KEY = 'branchify-recent';
 export const SETTINGS_STORAGE_KEY = 'branchify-settings';
 // Kept apart from the naming settings: the backdrop says nothing about branch names.
@@ -49,7 +52,8 @@ export const EMPTY_FORM: PersistedForm = {
 export const EMPTY_PROMPT: TicketPromptForm = {
   title: '',
   acceptanceCriteria: '',
-  description: ''
+  description: '',
+  selectedBlockIds: []
 };
 
 export const DEFAULT_SETTINGS: BranchSettings = DEFAULT_NAMING_SETTINGS;
@@ -99,7 +103,10 @@ export const parsePrompt = (raw: string | null): TicketPromptForm => {
       title: typeof parsed.title === 'string' ? parsed.title : '',
       acceptanceCriteria:
         typeof parsed.acceptanceCriteria === 'string' ? parsed.acceptanceCriteria : '',
-      description: typeof parsed.description === 'string' ? parsed.description : ''
+      description: typeof parsed.description === 'string' ? parsed.description : '',
+      selectedBlockIds: Array.isArray(parsed.selectedBlockIds)
+        ? parsed.selectedBlockIds.filter((id): id is string => typeof id === 'string')
+        : []
     };
   } catch {
     return EMPTY_PROMPT;

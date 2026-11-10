@@ -98,14 +98,29 @@ describe('parsePrompt', () => {
     expect(parsePrompt(null)).toEqual(EMPTY_PROMPT);
   });
 
-  it('restores the title, criteria and description', () => {
+  it('restores the title, criteria, description and ticked blocks', () => {
     const stored = {
       title: 'Mobile sign-in fails',
       acceptanceCriteria: '- one\n- two',
-      description: 'Body text'
+      description: 'Body text',
+      selectedBlockIds: ['b1', 'b2']
     };
 
     expect(parsePrompt(JSON.stringify(stored))).toEqual(stored);
+  });
+
+  it('defaults the block selection, as saved before blocks existed', () => {
+    expect(parsePrompt(JSON.stringify({ title: 'Just a title' }))).toEqual({
+      ...EMPTY_PROMPT,
+      title: 'Just a title'
+    });
+  });
+
+  it('drops non-string entries from the block selection', () => {
+    expect(parsePrompt(JSON.stringify({ selectedBlockIds: ['keep', 7, null] }))).toEqual({
+      ...EMPTY_PROMPT,
+      selectedBlockIds: ['keep']
+    });
   });
 
   it('defaults a missing title, as saved before the field existed', () => {

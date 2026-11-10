@@ -1,16 +1,22 @@
 import { CopyButton } from './copy-button';
-import type { TicketPromptForm } from '../types';
+import type { PromptBlock, TicketPromptForm } from '../types';
 
 type TicketPromptProps = {
   prompt: TicketPromptForm;
   generatedPrompt: string;
+  blocks: PromptBlock[];
   onChange: (patch: Partial<TicketPromptForm>) => void;
+  onToggleBlock: (id: string) => void;
+  onManageBlocks: () => void;
 };
 
 export const TicketPrompt = ({
   prompt,
   generatedPrompt,
-  onChange
+  blocks,
+  onChange,
+  onToggleBlock,
+  onManageBlocks
 }: TicketPromptProps): JSX.Element => (
   <section className="prompt-section">
     <h2>Ticket prompt</h2>
@@ -51,6 +57,29 @@ export const TicketPrompt = ({
         />
       </label>
     </div>
+
+    <fieldset className="settings-fieldset block-picker">
+      <legend>Blocks</legend>
+      {blocks.length > 0 ? (
+        blocks.map((block) => (
+          <label key={block.id} className="settings-toggle">
+            <input
+              type="checkbox"
+              checked={prompt.selectedBlockIds.includes(block.id)}
+              onChange={() => onToggleBlock(block.id)}
+            />
+            {block.heading}
+          </label>
+        ))
+      ) : (
+        <p className="settings-hint">
+          No blocks yet. Blocks are reusable instructions you can tick on per ticket.
+        </p>
+      )}
+      <button type="button" className="btn btn-secondary" onClick={onManageBlocks}>
+        Manage blocks
+      </button>
+    </fieldset>
 
     {generatedPrompt ? (
       <article className="prompt-output" aria-live="polite">

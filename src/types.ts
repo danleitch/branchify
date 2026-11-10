@@ -15,6 +15,18 @@ export type TicketPromptForm = {
   title: string;
   acceptanceCriteria: string;
   description: string;
+  /** Ids of the blocks ticked for this ticket. Unknown ids are ignored. */
+  selectedBlockIds: string[];
+};
+
+/**
+ * A reusable instruction block. The heading is only a label for the pick list;
+ * the body is what actually goes into the prompt.
+ */
+export type PromptBlock = {
+  id: string;
+  heading: string;
+  body: string;
 };
 
 export type RecentBranch = {
