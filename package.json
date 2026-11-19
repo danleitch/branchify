@@ -12,7 +12,9 @@
     "coverage": "vitest run --coverage",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "deploy": "npm run build && wrangler deploy",
+    "cf:preview": "npm run build && wrangler dev"
   },
   "dependencies": {
     "@tsparticles/react": "^3.0.0",
@@ -40,6 +42,7 @@
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.62.1",
     "vite": "^7.0.0",
-    "vitest": "^3.2.6"
+    "vitest": "^3.2.6",
+    "wrangler": "^4.165.0"
   }
 }
